@@ -1,0 +1,11 @@
+# Test Configuration for Queue Management System
+# Format: path|R-uptime_minutes
+# These bots will restart every 2 minutes to test collision detection
+
+# Test bots with R-2 timers (2 minute uptime timers)
+/Users/apple/Desktop/lab_code/test_bot_1.py|R-2
+/Users/apple/Desktop/lab_code/test_bot_2.py|R-2
+
+# Database monitoring
+*db
+

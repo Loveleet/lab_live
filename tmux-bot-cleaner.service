@@ -1,0 +1,38 @@
+[Unit]
+Description=Tmux Bot Cleaner PostgreSQL Monitor
+After=network-online.target postgresql.service
+Wants=network-online.target postgresql.service
+Requires=network-online.target
+
+[Service]
+Type=simple
+User=ubuntu
+Group=ubuntu
+WorkingDirectory=/home/ubuntu/lab_code
+ExecStart=/usr/bin/python3 /home/ubuntu/lab_code/tmux_bot_cleaner_postgrey.py
+Restart=always
+RestartSec=15
+StartLimitBurst=5
+StartLimitIntervalSec=300
+StandardOutput=journal
+StandardError=journal
+SyslogIdentifier=tmux-bot-cleaner
+
+# Environment variables
+Environment=PYTHONPATH=/home/ubuntu/lab_code
+Environment=PATH=/usr/local/bin:/usr/bin:/bin
+Environment=HOME=/home/ubuntu
+
+# Security settings
+NoNewPrivileges=true
+PrivateTmp=true
+ProtectSystem=strict
+ProtectHome=read-only
+ReadWritePaths=/home/ubuntu/lab_code/TmuxCleaner /tmp
+
+# Resource limits
+MemoryMax=512M
+CPUQuota=50%
+
+[Install]
+WantedBy=multi-user.target

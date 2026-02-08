@@ -1,0 +1,19 @@
+.chart-grid {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 10px;
+  height: 100vh;
+  background: #0e1116;
+  padding: 10px;
+}
+
+.tv-chart-container {
+  border: 1px solid #333;
+  background: #1e222d;
+  height: 100%;
+}
+
+.tv-chart-inner {
+  width: 100%;
+  height: 100%;
+}

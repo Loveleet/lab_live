@@ -1,0 +1,21 @@
+{
+  "mcpServers": {
+    "lab": {
+      "command": "node",
+      "args": ["lab-trading-dashboard/server/mcp-server/index.js"],
+      "env": {
+        "PGHOST": "150.241.244.130",
+        "PGPORT": "5432",
+        "PGUSER": "lab",
+        "PGPASSWORD": "IndiaNepal1-",
+        "PGDATABASE": "labdb2",
+        "PGSSLMODE": "require"
+      }
+    },
+    "browser": {
+      "command": "node",
+      "args": ["-e", "console.log('Browser MCP server - connect via Chrome extension')"],
+      "env": {}
+    }
+  }
+}

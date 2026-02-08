@@ -1,0 +1,19 @@
+{
+  "name": "lab-mcp-server",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "main": "index.js",
+  "license": "UNLICENSED",
+  "engines": {
+    "node": ">=18"
+  },
+  "dependencies": {
+    "@modelcontextprotocol/sdk": "^1.18.0",
+    "pg": "^8.11.5",
+    "dotenv": "^16.4.5"
+  },
+  "scripts": {
+    "start": "node index.js"
+  }
+}

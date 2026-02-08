@@ -1,0 +1,29 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer components {
+  .sidebar {
+    @apply bg-gradient-to-b from-sidebarGradientStart to-sidebarGradientEnd shadow-xl p-4 rounded-lg;
+  }
+  
+  .sidebar-item {
+    @apply flex items-center gap-3 p-3 transition-all duration-300;
+  }
+  
+  .sidebar-item:hover {
+    @apply bg-sidebarHover shadow-lg scale-105;
+  }
+  .card-container {
+    transition: transform 0.3s ease-in-out, box-shadow 0.3s ease-in-out;
+  }
+  
+  .card-container:hover {
+    transform: scale(1.05);
+    box-shadow: 0px 10px 20px rgba(0, 0, 0, 0.2);
+  }
+  .active-link {
+    @apply text-activeLink;
+  }
+ 
+}

@@ -1,0 +1,25 @@
+# Dependencies
+node_modules/
+server/node_modules/
+server/mcp-server/node_modules/
+
+# Build
+dist/
+
+# Env and secrets (do not commit)
+.env
+.env.*
+!.env.example
+!.env.deploy.example
+!.env.development.example
+
+# Server with credentials — only on cloud; repo has server.example.js
+server/server.js
+
+# IDE / OS
+.DS_Store
+*.log
+
+# Local
+venv/
+.venv/

@@ -1,0 +1,18 @@
+[Unit]
+Description=Cloudflare Tunnel for LAB API (HTTPS for GitHub Pages)
+After=network-online.target lab-trading-dashboard.service
+Wants=network-online.target
+
+[Service]
+Type=simple
+User=root
+ExecStartPre=/bin/bash -c 'command -v cloudflared >/dev/null || (curl -sL https://github.com/cloudflare/cloudflared/releases/latest/download/cloudflared-linux-amd64 -o /tmp/cloudflared && chmod +x /tmp/cloudflared && mv /tmp/cloudflared /usr/local/bin/cloudflared)'
+ExecStart=/usr/local/bin/cloudflared tunnel --url http://localhost:10000
+StandardOutput=append:/var/log/cloudflared-tunnel.log
+StandardError=append:/var/log/cloudflared-tunnel.log
+ExecStartPost=/bin/bash -c 'sleep 15; /opt/apps/lab-trading-dashboard/scripts/update-github-secret-from-tunnel.sh 2>/dev/null || true'
+Restart=always
+RestartSec=10
+
+[Install]
+WantedBy=multi-user.target

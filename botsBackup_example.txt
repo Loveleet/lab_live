@@ -1,0 +1,18 @@
+# Format: path|alarm_minutesArestart_minutes or just path
+# Examples:
+# /root/botmain.py|2A5    # Alarm after 2 min, restart after 5 min
+# /root/BinanceCollector_1m.py   # No timestamp monitoring (simple logic)
+
+# Files WITH timestamp monitoring (will use database timestamps)
+/root/botmain.py|2A5
+/root/IMACD_BackTest_Database.py|5A10
+/root/Pair_Status.py|10A20
+
+# Files WITHOUT timestamp monitoring (use simple logic - just start if not running)
+/root/BinanceCollector_1m.py
+/root/BinanceCollector_3m_5m.py
+/root/BinanceCollector_15m.py
+/root/BinanceCollector_30m_1d.py
+
+# Database monitoring
+*db

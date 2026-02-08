@@ -1,0 +1,47 @@
+# Deploy to Ubuntu VM on push to the configured branch(es).
+# Edit "branches" below to run for your branch (e.g. main, lab_live).
+# Requires GitHub Secrets: SSH_HOST, SSH_USER, SSH_KEY.
+# Optional: SSH_PORT (default 22), SSH_APP_PATH (default: lab-trading-dashboard).
+
+name: Deploy to Ubuntu
+
+on:
+  push:
+    branches: [main, lab_live]
+  workflow_dispatch:
+    inputs:
+      branch:
+        description: 'Branch to deploy (e.g. main or lab_live)'
+        required: true
+        default: 'lab_live'
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Deploy via SSH
+        uses: appleboy/ssh-action@v1.0.3
+        with:
+          host: ${{ secrets.SSH_HOST }}
+          username: ${{ secrets.SSH_USER }}
+          port: ${{ secrets.SSH_PORT || 22 }}
+          key: ${{ secrets.SSH_KEY }}
+          script: |
+            set -e
+            BRANCH="${{ github.event.inputs.branch || github.ref_name }}"
+            APP_DIR="${{ secrets.SSH_APP_PATH || 'lab-trading-dashboard' }}"
+            APP_PATH="/opt/apps/${APP_DIR}"
+            if [ ! -d "$APP_PATH" ]; then
+              echo "Error: $APP_PATH not found. Run server setup first (see docs/GITHUB_AUTO_SYNC.md)."
+              exit 1
+            fi
+            cd "$APP_PATH"
+            echo "Deploying branch: $BRANCH"
+            git fetch origin "$BRANCH"
+            git reset --hard "origin/$BRANCH"
+            npm ci
+            VITE_API_BASE_URL= npm run build
+            cd server && npm ci && cd ..
+            cp -f server/server.example.js server/server.js
+            sudo systemctl restart lab-trading-dashboard
+            echo "Deploy done (branch: $BRANCH)."
