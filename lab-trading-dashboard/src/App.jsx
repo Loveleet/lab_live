@@ -336,6 +336,18 @@ const [selectedIntervals, setSelectedIntervals] = useState(() => {
   
 
   const refreshAllData = useCallback(async () => {
+    // On GitHub Pages with no API configured, skip requests to avoid 404 spam
+    if (typeof window !== "undefined" && window.location?.hostname?.includes("github.io") && !API_BASE_URL) {
+      setTradeData([]);
+      setMachines([]);
+      setLogData([]);
+      setClientData([]);
+      setSuperTrendData([]);
+      setEmaTrends(null);
+      setActiveLossFlags(null);
+      setDemoDataHint(null);
+      return;
+    }
     try {
       const tradeRes = await fetch(api("/api/trades"));
       const tradeJson = tradeRes.ok ? await tradeRes.json() : { trades: [] };
@@ -1279,6 +1291,7 @@ useEffect(() => {
 
   useEffect(() => {
     const fetchTrades = async () => {
+      if (typeof window !== "undefined" && window.location?.hostname?.includes("github.io") && !API_BASE_URL) return;
       const res = await fetch(api("/api/trades"));
       const data = await res.json();
       
