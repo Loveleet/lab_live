@@ -361,9 +361,11 @@ const [selectedIntervals, setSelectedIntervals] = useState(() => {
       const machinesJson = machinesRes.ok ? await machinesRes.json() : { machines: [] };
       const machinesList = Array.isArray(machinesJson.machines) ? machinesJson.machines : [];
 
-      const logRes = await fetch("/logs.json");
+      // Use base path so logs.json works on GitHub Pages (e.g. /lab_live/logs.json)
+      const logsPath = `${(import.meta.env.BASE_URL || "/").replace(/\/?$/, "/")}logs.json`;
+      const logRes = await fetch(logsPath).catch(() => ({ ok: false }));
       const logJson = logRes.ok ? await logRes.json() : { logs: [] };
-      const logs = Array.isArray(logJson.logs) ? logJson.logs : [];
+      const logs = Array.isArray(logJson?.logs) ? logJson.logs : [];
 
       // Fetch SuperTrend data
       const superTrendRes = await fetch(api("/api/supertrend"));
