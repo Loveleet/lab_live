@@ -29,7 +29,16 @@ function getBuildTimeDefault() {
   return CLOUD_API;
 }
 
+/** When true, we are on the cloud server — always use same-origin API, ignore api-config.json */
+function isCloudServerOrigin() {
+  if (typeof window === "undefined") return false;
+  const h = window.location?.hostname || "";
+  return h === "150.241.244.130";
+}
+
 function getApiBaseUrl() {
+  // When served from cloud server, always use same origin so /api/* hits this server (real olab data)
+  if (isCloudServerOrigin()) return "";
   if (runtimeApiBaseUrl) return runtimeApiBaseUrl;
   return getBuildTimeDefault();
 }
@@ -37,6 +46,8 @@ function getApiBaseUrl() {
 /** Load API URL from api-config.json (used on GitHub Pages so data works after cloud restart). */
 function loadRuntimeApiConfig() {
   if (typeof window === "undefined") return Promise.resolve();
+  // When on cloud server, don't load api-config — we use same-origin API only
+  if (isCloudServerOrigin()) return Promise.resolve();
   const base = (typeof import.meta !== "undefined" && import.meta.env?.BASE_URL) || "/";
   const basePath = base === "./" || base === "." ? "" : (base.replace(/\/$/, "") || "");
   const path = (basePath ? basePath + "/" : "") + "api-config.json";
