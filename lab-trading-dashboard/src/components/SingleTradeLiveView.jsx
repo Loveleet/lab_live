@@ -86,7 +86,8 @@ const INTERVALS = ["5m", "15m", "1h", "4h"];
 const ROW_LABELS = ["current_row", "prev row", "prior row"];
 const ROW_LABEL_TO_DATA_INDEX = { "prior row": 0, "prev row": 1, "current_row": 2 };
 
-// Format signal name for display: show first + "..." + last, with smart differentiation for similar prefixes
+// Format signal name for display: show first + "..." + last,
+// and if that would still look identical for multiple rows, fall back to full name
 function formatSignalName(label, allLabels) {
   if (!label || label.length <= 14) return label;
   const prefixLen = 4;
@@ -97,10 +98,24 @@ function formatSignalName(label, allLabels) {
   const similar = allLabels.filter((l) => l && l.toLowerCase().startsWith(prefix));
   
   if (similar.length > 1) {
-    // Multiple names start the same - show more of the end to help differentiate
+    // Multiple names start the same - try first+...+extendedEnd
     const start = label.substring(0, prefixLen);
     const end = label.substring(label.length - extendedSuffixLen);
-    return `${start}...${end}`;
+    const candidate = `${start}...${end}`;
+
+    // If any other label would render to the same candidate, show full label instead
+    const collisions = similar.filter((other) => {
+      if (other === label) return false;
+      const oEnd = other.substring(other.length - extendedSuffixLen);
+      return `${start}...${oEnd}` === candidate;
+    });
+
+    if (collisions.length === 0) {
+      return candidate;
+    }
+
+    // Names are still indistinguishable with start+end → show full label
+    return label;
   }
   // Unique prefix - standard truncation
   const start = label.substring(0, prefixLen);
