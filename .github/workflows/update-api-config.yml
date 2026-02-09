@@ -1,5 +1,6 @@
-# Run every 2 minutes. Writes api-config.json to gh-pages so the frontend can load the current API URL at runtime (no full redeploy needed after tunnel restart).
-# Uses the current repo; no repo name is hardcoded.
+# Run every 2 minutes. Writes api-config.json to gh-pages so the frontend gets the current API URL at runtime (no full redeploy needed after tunnel restart).
+# Triggers: schedule every 2 min; manual with optional api_url; cloud triggers with api_url.
+# Resolves URL: input api_url > secret API_BASE_URL > curl cloud /api/tunnel-url.
 
 name: Update API config
 
@@ -7,6 +8,11 @@ on:
   schedule:
     - cron: '*/2 * * * *'
   workflow_dispatch:
+    inputs:
+      api_url:
+        description: 'Tunnel URL (e.g. https://xxx.trycloudflare.com). If empty, uses secret or cloud /api/tunnel-url'
+        required: false
+        type: string
 
 permissions:
   contents: write
@@ -15,13 +21,42 @@ jobs:
   update-api-config:
     runs-on: ubuntu-latest
     steps:
+      - name: Resolve tunnel URL
+        id: url
+        run: |
+          if [ -n "${{ github.event.inputs.api_url }}" ]; then
+            echo "url=${{ github.event.inputs.api_url }}" >> $GITHUB_OUTPUT
+            echo "Using input api_url"
+          elif [ -n "${{ secrets.API_BASE_URL }}" ]; then
+            echo "url=${{ secrets.API_BASE_URL }}" >> $GITHUB_OUTPUT
+            echo "Using secret API_BASE_URL"
+          else
+            # Fallback: fetch from cloud API (expects {"tunnelUrl":"https://..."})
+            RAW=$(curl -sf "http://150.241.244.130:10000/api/tunnel-url" 2>/dev/null || true)
+            if [ -n "$RAW" ]; then
+              RESOLVED=$(echo "$RAW" | node -e "let d='';process.stdin.on('data',c=>d+=c).on('end',()=>{try{const j=JSON.parse(d);console.log((j.tunnelUrl||j.apiBaseUrl||'').trim())}catch(e){}})" 2>/dev/null)
+              if [ -n "$RESOLVED" ]; then
+                echo "url=$RESOLVED" >> $GITHUB_OUTPUT
+                echo "Using cloud /api/tunnel-url"
+              fi
+            fi
+          fi
+          if [ -z "$(cat $GITHUB_OUTPUT | grep '^url=' | cut -d= -f2-)" ]; then
+            echo "No URL resolved; skipping write"
+            echo "skip=true" >> $GITHUB_OUTPUT
+          else
+            echo "skip=false" >> $GITHUB_OUTPUT
+          fi
+
       - name: Checkout gh-pages
+        if: steps.url.outputs.skip != 'true'
         uses: actions/checkout@v4
         with:
           ref: gh-pages
           token: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Write api-config.json
+        if: steps.url.outputs.skip != 'true'
         run: |
           node -e "
           const fs = require('fs');
@@ -29,9 +64,10 @@ jobs:
           fs.writeFileSync('api-config.json', JSON.stringify({ apiBaseUrl: url }));
           "
         env:
-          API_BASE_URL: ${{ secrets.API_BASE_URL }}
+          API_BASE_URL: ${{ steps.url.outputs.url }}
 
       - name: Commit and push if changed
+        if: steps.url.outputs.skip != 'true'
         run: |
           git config user.name "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
