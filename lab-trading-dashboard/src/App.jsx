@@ -205,7 +205,7 @@ const App = () => {
       return saved
         ? JSON.parse(saved)
         : {
-            enabled: true,
+            enabled: false,
             volume: 0.7,
             mode: "tts",
             announceActions: { BUY: true, SELL: true },
@@ -215,7 +215,7 @@ const App = () => {
           };
     } catch {
       return {
-        enabled: true,
+        enabled: false,
         volume: 0.7,
         mode: "tts",
         announceActions: { BUY: true, SELL: true },

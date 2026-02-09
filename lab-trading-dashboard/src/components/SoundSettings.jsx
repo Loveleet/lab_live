@@ -1,7 +1,7 @@
 import React, { useEffect, useMemo, useRef, useState } from "react";
 
 const DEFAULT_SETTINGS = {
-  enabled: true,
+  enabled: false,
   volume: 0.7,
   mode: "tts", // 'tts' | 'audio'
   announceActions: { BUY: true, SELL: true },
