@@ -576,6 +576,10 @@ const LiveTradeViewPage = () => {
   });
   const [actionRadioMode, setActionRadioMode] = useState(() => localStorage.getItem('liveTradeView_action_radio_mode') === 'true');
   const [actionToggleAll, setActionToggleAll] = useState(() => localStorage.getItem('liveTradeView_action_toggle_all') === 'true');
+  const [liveOnly, setLiveOnly] = useState(() => localStorage.getItem('liveTradeView_live_only') === 'true');
+  useEffect(() => {
+    localStorage.setItem('liveTradeView_live_only', liveOnly ? 'true' : 'false');
+  }, [liveOnly]);
 
   // Save selectedActions to localStorage when it changes
   useEffect(() => {
@@ -847,6 +851,8 @@ const LiveTradeViewPage = () => {
       setActionRadioMode={setActionRadioMode}
       actionToggleAll={actionToggleAll}
       setActionToggleAll={setActionToggleAll}
+      liveOnly={liveOnly}
+      setLiveOnly={setLiveOnly}
       trades={trades}
       darkMode={darkMode}
     />

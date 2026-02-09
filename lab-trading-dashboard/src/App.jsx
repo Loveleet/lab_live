@@ -307,6 +307,13 @@ const [selectedActions, setSelectedActions] = useState({
   BUY: true,
   SELL: true,
 });
+const [liveOnly, setLiveOnly] = useState(() => {
+  const saved = localStorage.getItem("liveOnly");
+  return saved === "true";
+});
+useEffect(() => {
+  localStorage.setItem("liveOnly", liveOnly ? "true" : "false");
+}, [liveOnly]);
 const [filterVisible, setFilterVisible] = useState(() => {
   const saved = localStorage.getItem("filterVisible");
   if (saved === "false") return false;
@@ -556,6 +563,11 @@ const filteredTradeData = useMemo(() => {
     const isMachineSelected = isSelected(selectedMachines, toMachineKey(trade.machineid));
     const isIntervalSelected = isSelected(selectedIntervals, trade.interval);
     const isActionSelected = isSelected(selectedActions, trade.action);
+    if (liveOnly) {
+      const v = trade.exist_in_exchange ?? trade.Exist_in_exchange;
+      const isLive = v === true || v === "true" || v === 1 || v === "1";
+      if (!isLive) return false;
+    }
 
     // ✅ Handle missing or malformed Candle time
     if (!trade.candel_time) return false;
@@ -569,7 +581,7 @@ const filteredTradeData = useMemo(() => {
     return isSignalSelected && isMachineSelected && isIntervalSelected && isActionSelected && isDateInRange;
   });
   // console.log('[App.jsx] filteredTradeData:', filteredTradeData);
-}, [tradeData, selectedSignals, selectedMachines, selectedIntervals, selectedActions, fromDate, toDate, includeMinClose, fontSizeLevel]);
+}, [tradeData, selectedSignals, selectedMachines, selectedIntervals, selectedActions, fromDate, toDate, includeMinClose, fontSizeLevel, liveOnly]);
 
 // Debug: log machine coverage and trade counts (raw vs filtered)
 useEffect(() => {
@@ -1614,6 +1626,8 @@ useEffect(() => {
                       setIntervalRadioMode={setIntervalRadioMode}
                       actionRadioMode={actionRadioMode}
                       setActionRadioMode={setActionRadioMode}
+                      liveOnly={liveOnly}
+                      setLiveOnly={setLiveOnly}
                       signalToggleAll={signalToggleAll}
                       setSignalToggleAll={setSignalToggleAll}
                       machineToggleAll={machineToggleAll}

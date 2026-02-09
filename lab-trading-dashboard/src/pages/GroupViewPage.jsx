@@ -485,6 +485,10 @@ const GroupViewPage = () => {
   }, [trades]);
   const [actionRadioMode, setActionRadioMode] = useState(() => localStorage.getItem('groupview_action_radio_mode') === 'true');
   const [actionToggleAll, setActionToggleAll] = useState(() => localStorage.getItem('groupview_action_toggle_all') === 'true');
+  const [liveOnly, setLiveOnly] = useState(() => localStorage.getItem('groupview_live_only') === 'true');
+  useEffect(() => {
+    localStorage.setItem('groupview_live_only', liveOnly ? 'true' : 'false');
+  }, [liveOnly]);
   useEffect(() => {
     // Fetch all trades like the main grid does, then filter by pair
     fetch(api('/api/trades'))
@@ -725,12 +729,15 @@ const GroupViewPage = () => {
 
 
 
-  // Filter trades for signals, machines, and actions only (symbol filtering is now done at database level)
+  // Filter trades for signals, machines, actions, and live (exist_in_exchange)
   function filterTrades(trades) {
     return trades.filter(t => {
+      if (liveOnly) {
+        const v = t.exist_in_exchange ?? t.Exist_in_exchange;
+        if (v !== true && v !== "true" && v !== 1 && v !== "1") return false;
+      }
       if (Object.keys(selectedSignals).length && !selectedSignals[t.SignalFrom]) return false;
       if (Object.keys(selectedMachines).length && !selectedMachines[t.MachineId]) return false;
-      // Check multiple possible action field names
       if (Object.keys(selectedActions).length) {
         const tradeAction = t.Action || t.action || t.SignalType || t.signal_type;
         if (!selectedActions[tradeAction]) return false;
@@ -821,6 +828,8 @@ const GroupViewPage = () => {
       setActionRadioMode={setActionRadioMode}
       actionToggleAll={actionToggleAll}
       setActionToggleAll={setActionToggleAll}
+      liveOnly={liveOnly}
+      setLiveOnly={setLiveOnly}
       trades={trades}
       darkMode={darkMode}
     />
@@ -831,14 +840,15 @@ const GroupViewPage = () => {
   const repIntensity = localStorage.getItem('groupview_reputation_intensity');
   const repMode = localStorage.getItem('groupview_reputation_mode') || 'perTrade';
 
-  // Apply the same filtering logic as the main grid view
+  // Apply the same filtering logic as the main grid view (including liveOnly)
   const filteredTradesForGrid = trades.filter(t => {
-    // Signal filter
+    if (liveOnly) {
+      const v = t.exist_in_exchange ?? t.Exist_in_exchange;
+      if (v !== true && v !== "true" && v !== 1 && v !== "1") return false;
+    }
     if (Object.keys(selectedSignals).length && !selectedSignals[t.SignalFrom]) return false;
-    // Machine filter
     if (Object.keys(selectedMachines).length && !selectedMachines[t.MachineId]) return false;
-    // Action filter
-          if (Object.keys(selectedActions).length && !selectedActions[t.action]) return false;
+    if (Object.keys(selectedActions).length && !selectedActions[t.action]) return false;
     return true;
   });
 
@@ -849,12 +859,13 @@ const GroupViewPage = () => {
       onPairSelect={() => {}}
       candleType={candleType}
       interval={interval}
-      trades={filteredTradesForGrid} // Use filtered trades data like main grid
+      trades={filteredTradesForGrid}
       selectedSymbols={symbols}
       previewMode
       darkMode={darkMode}
       reputationEnabled={repEnabled}
       reputationIntensity={repIntensity !== null ? Number(repIntensity) : 0}
+      liveOnly={liveOnly}
       reputationMode={repMode}
     />
   );

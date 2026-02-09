@@ -38,6 +38,8 @@ const TradeFilterPanel = ({
   setIntervalRadioMode,
   actionRadioMode,
   setActionRadioMode,
+  liveOnly,
+  setLiveOnly,
   signalToggleAll,
   setSignalToggleAll,
   machineToggleAll,
@@ -412,6 +414,15 @@ const TradeFilterPanel = ({
               <span className="text-gray-700 dark:text-gray-200 font-semibold">{action}</span>
             </label>
           ))}
+          <label className="flex items-center space-x-2 bg-white dark:bg-gray-800 rounded px-2 py-1 shadow-sm border border-gray-200 dark:border-gray-700">
+            <input
+              type="checkbox"
+              checked={liveOnly ?? false}
+              onChange={() => setLiveOnly?.(prev => !prev)}
+              className="form-checkbox h-5 w-5 text-pink-600"
+            />
+            <span className="text-gray-700 dark:text-gray-200 font-semibold">Live</span>
+          </label>
         </div>
       </div>
       {/* Date Range and Reset */}

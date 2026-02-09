@@ -172,6 +172,10 @@ const ReportDashboard = () => {
   });
   const [actionRadioMode, setActionRadioMode] = useState(() => localStorage.getItem('pair_stats_action_radio_mode') === 'true');
   const [actionToggleAll, setActionToggleAll] = useState(() => localStorage.getItem('pair_stats_action_toggle_all') === 'true');
+  const [liveOnly, setLiveOnly] = useState(() => localStorage.getItem('pair_stats_live_only') === 'true');
+  useEffect(() => {
+    localStorage.setItem('pair_stats_live_only', liveOnly ? 'true' : 'false');
+  }, [liveOnly]);
 
   // Fetch trades data
   useEffect(() => {
@@ -217,14 +221,15 @@ const ReportDashboard = () => {
     }
   }, [symbols]);
 
-  // 1. Apply all filters (signal, machine, action, etc.)
+  // 1. Apply all filters (signal, machine, action, live/exist_in_exchange)
   function filterTrades(trades) {
     return trades.filter(t => {
-      // Signal filter
+      if (liveOnly) {
+        const v = t.exist_in_exchange ?? t.Exist_in_exchange;
+        if (v !== true && v !== "true" && v !== 1 && v !== "1") return false;
+      }
       if (Object.keys(selectedSignals).length && !selectedSignals[t.signalfrom]) return false;
-      // Machine filter
       if (Object.keys(selectedMachines).length && !selectedMachines[t.machineid]) return false;
-      // Action filter
       if (Object.keys(selectedActions).length && !selectedActions[t.action]) return false;
       return true;
     });
@@ -357,6 +362,8 @@ const ReportDashboard = () => {
       setActionRadioMode={setActionRadioMode}
       actionToggleAll={actionToggleAll}
       setActionToggleAll={setActionToggleAll}
+      liveOnly={liveOnly}
+      setLiveOnly={setLiveOnly}
       trades={trades}
       darkMode={darkMode}
     />
@@ -506,8 +513,8 @@ const ReportDashboard = () => {
               onPairSelect={handlePairSelect}
               candleType={candleType}
               interval={interval}
-          trades={tradesForGrid}
-          selectedPair={null} // Always null
+              trades={tradesForGrid}
+              selectedPair={null}
               darkMode={darkMode}
               filterBar={filterBar}
               groupModeEnabled={groupModeEnabled}
@@ -516,6 +523,7 @@ const ReportDashboard = () => {
               showForClubFilter={showForClubFilter}
               setShowForClubFilter={setShowForClubFilter}
               onVisiblePairsChange={setVisiblePairs}
+              liveOnly={liveOnly}
             />
       </div>
     </div>

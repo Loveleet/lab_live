@@ -25,11 +25,15 @@ ssh "$CLOUD_HOST" "
   sleep 2
   echo '→ Testing server config...'
   curl -s http://localhost:10000/api/server-info | python3 -m json.tool 2>/dev/null || curl -s http://localhost:10000/api/server-info
+  echo ''
+  echo '→ Tunnel URL (for GitHub Pages):'
+  curl -s http://localhost:10000/api/tunnel-url | python3 -m json.tool 2>/dev/null || curl -s http://localhost:10000/api/tunnel-url
 "
 
 echo ""
 echo "✅ Done. Check output above - should show:"
 echo "   - hasGitHubPagesOrigin: true"
 echo "   - database: olab"
+echo "   - tunnelUrl: your https://xxx.trycloudflare.com URL (or null if tunnel not running)"
 echo ""
 echo "Then hard-refresh GitHub Pages: https://loveleet.github.io/lab_live/"
