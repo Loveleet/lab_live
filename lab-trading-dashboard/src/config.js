@@ -18,7 +18,8 @@ function getBuildTimeDefault() {
     }
     return base;
   }
-  if (import.meta.env.MODE !== "production") return "http://localhost:3001";
+  // When running on localhost (dev), use cloud server for data unless overridden (e.g. VITE_API_BASE_URL=http://localhost:3001 for local Node)
+  if (import.meta.env.MODE !== "production") return CLOUD_API;
   if (typeof window !== "undefined" && window.location?.origin) {
     const o = window.location.origin;
     if (o.startsWith("http://150.241.244.130") || o.startsWith("http://localhost") || o.startsWith("https://localhost")) return "";
@@ -97,5 +98,20 @@ export { getApiBaseUrl, loadRuntimeApiConfig };
 
 export function api(path) {
   const base = getApiBaseUrl();
+  return base ? `${base.replace(/\/$/, "")}${path.startsWith("/") ? path : `/${path}`}` : path;
+}
+
+/** Base URL for the signals API (api_signals.py). On localhost we call local Python (5001); otherwise same as main API. */
+function getSignalsApiBaseUrl() {
+  if (typeof window !== "undefined" && (window.location?.hostname === "localhost" || window.location?.hostname === "127.0.0.1")) {
+    const env = import.meta.env.VITE_SIGNALS_API_BASE_URL;
+    if (env !== undefined && env !== "") return env.replace(/\/$/, "");
+    return "http://localhost:5001";
+  }
+  return getApiBaseUrl();
+}
+
+export function apiSignals(path) {
+  const base = getSignalsApiBaseUrl();
   return base ? `${base.replace(/\/$/, "")}${path.startsWith("/") ? path : `/${path}`}` : path;
 }

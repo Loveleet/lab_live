@@ -3,7 +3,7 @@ import { useNavigate } from "react-router-dom";
 import { Play, Settings, Square, Shield, Crosshair, LayoutGrid } from "lucide-react";
 import { formatTradeData } from "./TableView";
 import { LogoutButton } from "../auth";
-import { API_BASE_URL, api } from "../config";
+import { API_BASE_URL, api, apiSignals } from "../config";
 
 const REFRESH_INTERVAL_KEY = "refresh_app_main_intervalSec";
 
@@ -52,8 +52,23 @@ const BACK_SECTION_HEIGHT_KEY = "singleTradeLiveView_backSectionHeight";
 const CHART_SECTION_HEIGHT_KEY = "singleTradeLiveView_chartSectionHeight";
 const INFO_FIELD_ORDER_KEY = "singleTradeLiveView_infoFieldOrder";
 const SECTION_ORDER_KEY = "singleTradeLiveView_sectionOrder";
+const SIGNALS_VIEW_MODE_KEY = "singleTradeLiveView_signalsViewMode";
 const SECTION_IDS = ["information", "binanceData", "chart"];
 const SECTION_LABELS = { information: "Information", binanceData: "Binance Data", chart: "Chart" };
+
+const INTERVALS = ["5m", "15m", "1h", "4h"];
+const ROW_LABELS = ["prior row", "prev row", "current_row"];
+const INTERVAL_GROUP_COLORS = [
+  "bg-teal-100 dark:bg-teal-900/40",
+  "bg-blue-100 dark:bg-blue-900/40",
+  "bg-emerald-100 dark:bg-emerald-900/40",
+  "bg-amber-100 dark:bg-amber-900/40",
+];
+const ROW_GROUP_COLORS = [
+  "bg-teal-100 dark:bg-teal-900/40",
+  "bg-blue-100 dark:bg-blue-900/40",
+  "bg-amber-100 dark:bg-amber-900/40",
+];
 
 // Signals grid: only these rows (label = display, key = API response key)
 const SIGNAL_ROWS = [
@@ -874,7 +889,7 @@ export default function SingleTradeLiveView({ formattedRow: initialFormattedRow,
     if (!signalSymbol) return;
     const callCalculateSignals = async () => {
       try {
-        const res = await fetch(api("/api/calculate-signals"), {
+        const res = await fetch(apiSignals("/api/calculate-signals"), {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({ symbol: signalSymbol, candle: "regular" }),
@@ -960,9 +975,19 @@ export default function SingleTradeLiveView({ formattedRow: initialFormattedRow,
     } catch {}
     return 50;
   });
+  const [signalsTableViewMode, setSignalsTableViewMode] = useState(() => {
+    try {
+      const v = localStorage.getItem(SIGNALS_VIEW_MODE_KEY);
+      if (v === "rowWise" || v === "intervalWise") return v;
+    } catch {}
+    return "intervalWise";
+  });
   useEffect(() => {
     localStorage.setItem(INFO_SPLIT_KEY, String(infoSplitPercent));
   }, [infoSplitPercent]);
+  useEffect(() => {
+    localStorage.setItem(SIGNALS_VIEW_MODE_KEY, signalsTableViewMode);
+  }, [signalsTableViewMode]);
   useEffect(() => {
     localStorage.setItem(BACK_SPLIT_KEY, String(backSplitPercent));
   }, [backSplitPercent]);
@@ -1122,7 +1147,7 @@ export default function SingleTradeLiveView({ formattedRow: initialFormattedRow,
               className="border border-gray-300 dark:border-gray-600 rounded-xl flex flex-col overflow-hidden flex-shrink-0 bg-white dark:bg-[#0d0d0d]"
               style={{ width: `${infoSplitPercent}%`, minHeight: infoLeftHeight, fontSize: `${(zoomInfoLeft / 100) * 11}px` }}
             >
-              <div className="flex items-center gap-2 p-1.5 border-b border-gray-200 dark:border-gray-700 flex-shrink-0">
+              <div className="flex items-center gap-2 p-1.5 border-b border-gray-200 dark:border-gray-700 flex-shrink-0 flex-wrap">
                 <ZoomControls
                   onDecrease={zoomOutInfoLeft}
                   onIncrease={zoomInInfoLeft}
@@ -1133,24 +1158,42 @@ export default function SingleTradeLiveView({ formattedRow: initialFormattedRow,
                 <span className="text-xs font-semibold text-gray-600 dark:text-gray-400 truncate">
                   {signalsData?.symbol || signalSymbol || "—"} signals
                 </span>
+                {signalsData?.ok && signalsData?.intervals && (
+                  <button
+                    type="button"
+                    onClick={() => setSignalsTableViewMode((m) => (m === "intervalWise" ? "rowWise" : "intervalWise"))}
+                    className="ml-auto px-2 py-1 rounded text-xs font-medium bg-teal-600 hover:bg-teal-700 text-white whitespace-nowrap"
+                  >
+                    Change view
+                  </button>
+                )}
               </div>
               <div className="flex-1 min-h-0 overflow-auto">
                 {signalsData?.ok && signalsData?.intervals ? (
                   (() => {
-                    const INTERVALS = ["5m", "15m", "1h", "4h"];
-                    const ROW_LABELS = ["prior row", "prev row", "current_row"];
+                    const isIntervalWise = signalsTableViewMode === "intervalWise";
+                    const columns = isIntervalWise
+                      ? INTERVALS.flatMap((iv, gIdx) =>
+                          ROW_LABELS.map((label) => ({ iv, label, rowIdx: ROW_LABELS.indexOf(label), groupKey: iv, groupIndex: gIdx }))
+                        )
+                      : ROW_LABELS.flatMap((label, gIdx) =>
+                          INTERVALS.map((iv) => ({ iv, label, rowIdx: ROW_LABELS.indexOf(label), groupKey: label, groupIndex: gIdx }))
+                        );
+                    const groupColors = isIntervalWise ? INTERVAL_GROUP_COLORS : ROW_GROUP_COLORS;
+                    const getGroupColor = (groupIndex) => groupColors[groupIndex] ?? "";
                     return (
                       <table className="w-full border-collapse text-[10px] sm:text-xs">
                         <thead className="sticky top-0 bg-gray-100 dark:bg-gray-800 z-10">
                           <tr>
                             <th className="border border-gray-300 dark:border-gray-600 px-1 py-0.5 text-left font-semibold text-gray-700 dark:text-gray-300 whitespace-nowrap min-w-[80px]">Signal</th>
-                            {INTERVALS.flatMap((iv) =>
-                              ROW_LABELS.map((label) => (
-                                <th key={`${iv}-${label}`} className="border border-gray-300 dark:border-gray-600 px-0.5 py-0.5 text-center font-medium text-gray-600 dark:text-gray-400 whitespace-nowrap">
-                                  {iv} {label}
-                                </th>
-                              ))
-                            )}
+                            {columns.map((col, idx) => (
+                              <th
+                                key={`${col.iv}-${col.label}-${idx}`}
+                                className={`border border-gray-300 dark:border-gray-600 px-0.5 py-0.5 text-center font-medium text-gray-600 dark:text-gray-400 whitespace-nowrap ${getGroupColor(col.groupIndex)}`}
+                              >
+                                {col.iv} {col.label}
+                              </th>
+                            ))}
                           </tr>
                         </thead>
                         <tbody>
@@ -1159,18 +1202,21 @@ export default function SingleTradeLiveView({ formattedRow: initialFormattedRow,
                               <td className="border border-gray-200 dark:border-gray-600 px-1 py-0.5 font-medium text-teal-700 dark:text-teal-400 whitespace-nowrap truncate max-w-[100px]" title={label}>
                                 {label}
                               </td>
-                              {INTERVALS.flatMap((iv) => {
-                                const summary = signalsData.intervals[iv]?.summary;
+                              {columns.map((col, idx) => {
+                                const summary = signalsData.intervals[col.iv]?.summary;
                                 const rows = Array.isArray(summary) ? summary : [];
-                                return [0, 1, 2].map((rowIdx) => {
-                                  const v = rows[rowIdx]?.[key];
-                                  const str = v != null ? (typeof v === "number" ? (Number.isInteger(v) ? String(v) : v.toFixed?.(4) ?? String(v)) : String(v)) : "—";
-                                  return (
-                                    <td key={`${iv}-${rowIdx}`} className="border border-gray-200 dark:border-gray-600 px-0.5 py-0.5 text-center text-gray-800 dark:text-gray-200 truncate max-w-[60px]" title={str}>
-                                      {str}
-                                    </td>
-                                  );
-                                });
+                                const v = rows[col.rowIdx]?.[key];
+                                const str = v != null ? (typeof v === "number" ? (Number.isInteger(v) ? String(v) : v.toFixed?.(4) ?? String(v)) : String(v)) : "—";
+                                const cellBg = getGroupColor(col.groupIndex);
+                                return (
+                                  <td
+                                    key={`${col.iv}-${col.label}-${idx}`}
+                                    className={`border border-gray-200 dark:border-gray-600 px-0.5 py-0.5 text-center text-gray-800 dark:text-gray-200 truncate max-w-[60px] ${cellBg}`}
+                                    title={str}
+                                  >
+                                    {str}
+                                  </td>
+                                );
                               })}
                             </tr>
                           ))}
