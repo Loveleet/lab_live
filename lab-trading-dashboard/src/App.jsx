@@ -1555,15 +1555,6 @@ useEffect(() => {
                       <p className="text-xs">If it still fails: on the cloud run the tunnel (<code className="bg-amber-200/60 dark:bg-amber-800/60 px-1 rounded">/opt/apps/lab-trading-dashboard/scripts/cron-tunnel-update.sh</code> or start cloudflared), wait 2–3 min, then <strong>hard-refresh this page</strong> (Ctrl+Shift+R).</p>
                     </div>
                   )}
-                  {/* Debug panel for GitHub Pages */}
-                  {typeof window !== "undefined" && window.location?.hostname?.includes("github.io") && (
-                    <div className="mb-4 p-3 rounded-lg bg-gray-100 dark:bg-gray-800 border border-gray-300 dark:border-gray-700 text-xs font-mono">
-                      <strong className="block mb-1">Debug Info:</strong>
-                      <div>API Base: {getApiBaseUrl() || "(empty - waiting for api-config.json)"}</div>
-                      <div>Page URL: {window.location.href}</div>
-                      <div>Full API URL: {getApiBaseUrl() ? api("/api/trades") : "N/A"}</div>
-                    </div>
-                  )}
                   {typeof window !== "undefined" && window.location?.hostname?.includes("github.io") && !apiBaseForBanner && !apiUnreachable && (
                     <div className="mb-4 p-4 rounded-lg bg-blue-100 dark:bg-blue-900/40 border border-blue-400 dark:border-blue-600 text-blue-900 dark:text-blue-100 text-sm">
                       <strong className="block mb-2">API not configured for GitHub Pages</strong>
