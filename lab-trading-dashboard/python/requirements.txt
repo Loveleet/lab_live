@@ -1,0 +1,2 @@
+# Telegram Bot API (use this; do NOT install the 'telegram' package - it shadows this)
+python-telegram-bot>=20.0

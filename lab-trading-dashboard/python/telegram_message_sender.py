@@ -1,11 +1,21 @@
 from datetime import datetime, timezone
 
-import telegram
 import logging
 import asyncio
 
 # Configure logging
 logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
+
+# Use python-telegram-bot (pip install python-telegram-bot). Do NOT install the 'telegram' package.
+try:
+    import telegram
+    from telegram.error import TelegramError
+except AttributeError:
+    raise ImportError(
+        "Wrong 'telegram' package. Run: pip uninstall telegram && pip install python-telegram-bot"
+    ) from None
+except ImportError:
+    raise ImportError("Install Telegram bot API: pip install python-telegram-bot") from None
 
 # Initialize Telegram Bot
 telegram_bot = None
@@ -17,7 +27,7 @@ if SEND_TELEGRAM_MESSAGE:
     try:
         telegram_bot = telegram.Bot(token=TELEGRAM_API_KEY)
         logging.info("Telegram bot initialized successfully.")
-    except telegram.error.TelegramError as e:
+    except TelegramError as e:
         logging.error(f"Failed to initialize Telegram bot: {e}")
 
 
@@ -41,7 +51,7 @@ async def _send_message_to_user(user_id, message):
     try:
         logging.info(f"Sending message to {user_id}: {message}")
         await telegram_bot.send_message(chat_id=user_id, text=message)
-    except telegram.error.TelegramError as e:
+    except TelegramError as e:
         logging.error(f"Telegram error sending to user {user_id}: {e}")
     except Exception as e:
         logging.error(f"Unexpected error sending to user {user_id}: {e}")
