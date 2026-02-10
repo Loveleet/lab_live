@@ -91,6 +91,7 @@ const tradeDataColumnOptions = [
   { label: 'Pair', value: 'Pair' },
   { label: 'Interval', value: 'Interval' },
   { label: 'Action', value: 'Action' },
+  { label: 'Exist In Exchange', value: 'exist_in_exchange' },
   { label: 'PL After Comm', value: 'Pl_after_comm' },
   { label: 'Hedge Buy PL', value: 'Hedge_Buy_pl' },
   { label: 'Hedge Sell PL', value: 'Hedge_Sell_pl' },
@@ -448,6 +449,24 @@ const ListViewPage = () => {
   });
   const [actionRadioMode, setActionRadioMode] = useState(() => localStorage.getItem('pair_stats_action_radio_mode') === 'true');
   const [actionToggleAll, setActionToggleAll] = useState(() => localStorage.getItem('pair_stats_action_toggle_all') === 'true');
+  const [liveFilter, setLiveFilter] = useState(() => {
+    const saved = localStorage.getItem('pair_stats_live_filter');
+    if (saved) {
+      try {
+        return JSON.parse(saved);
+      } catch {
+        return { true: true, false: true };
+      }
+    }
+    return { true: true, false: true };
+  });
+  useEffect(() => {
+    localStorage.setItem('pair_stats_live_filter', JSON.stringify(liveFilter));
+  }, [liveFilter]);
+  const [liveRadioMode, setLiveRadioMode] = useState(() => localStorage.getItem('pair_stats_live_radio_mode') === 'true');
+  useEffect(() => {
+    localStorage.setItem('pair_stats_live_radio_mode', liveRadioMode ? 'true' : 'false');
+  }, [liveRadioMode]);
 
   // Trade data - use same data source as main grid
   const [trades, setTrades] = useState([]);
@@ -574,9 +593,20 @@ const ListViewPage = () => {
 
 
 
-  // Filter trades for signals, machines, and actions only (symbol filtering is now done at database level)
+  // Filter trades for signals, machines, actions, and live (exist_in_exchange)
   function filterTrades(trades) {
     return trades.filter(t => {
+      const v = t.exist_in_exchange ?? t.Exist_in_exchange;
+      const isLive = v === true || v === "true" || v === 1 || v === "1";
+      if (liveFilter.true && liveFilter.false) {
+        // Both selected: show all
+      } else if (liveFilter.true && !isLive) {
+        return false; // Only true selected, but trade is false
+      } else if (liveFilter.false && isLive) {
+        return false; // Only false selected, but trade is true
+      } else if (!liveFilter.true && !liveFilter.false) {
+        return false; // Neither selected: show nothing
+      }
       if (Object.keys(selectedSignals).length && !selectedSignals[t.SignalFrom]) return false;
       if (Object.keys(selectedMachines).length && !selectedMachines[t.MachineId]) return false;
       if (Object.keys(selectedActions).length && !selectedActions[t.Action]) return false;
@@ -666,6 +696,10 @@ const ListViewPage = () => {
       setActionRadioMode={setActionRadioMode}
       actionToggleAll={actionToggleAll}
       setActionToggleAll={setActionToggleAll}
+      liveFilter={liveFilter}
+      setLiveFilter={setLiveFilter}
+      liveRadioMode={liveRadioMode}
+      setLiveRadioMode={setLiveRadioMode}
       trades={trades}
       darkMode={darkMode}
     />
@@ -676,13 +710,21 @@ const ListViewPage = () => {
   const repIntensity = localStorage.getItem('pair_stats_reputation_intensity');
   const repMode = localStorage.getItem('pair_stats_reputation_mode') || 'perTrade';
 
-  // Apply the same filtering logic as the main grid view
+  // Apply the same filtering logic as the main grid view (including liveFilter)
   const filteredTradesForGrid = trades.filter(t => {
-    // Signal filter
+    const v = t.exist_in_exchange ?? t.Exist_in_exchange;
+    const isLive = v === true || v === "true" || v === 1 || v === "1";
+    if (liveFilter.true && liveFilter.false) {
+      // Both selected: show all
+    } else if (liveFilter.true && !isLive) {
+      return false; // Only true selected, but trade is false
+    } else if (liveFilter.false && isLive) {
+      return false; // Only false selected, but trade is true
+    } else if (!liveFilter.true && !liveFilter.false) {
+      return false; // Neither selected: show nothing
+    }
     if (Object.keys(selectedSignals).length && !selectedSignals[t.SignalFrom]) return false;
-    // Machine filter
     if (Object.keys(selectedMachines).length && !selectedMachines[t.MachineId]) return false;
-    // Action filter
     if (Object.keys(selectedActions).length && !selectedActions[t.Action]) return false;
     return true;
   });
@@ -694,13 +736,14 @@ const ListViewPage = () => {
       onPairSelect={() => {}}
       candleType={candleType}
       interval={interval}
-      trades={filteredTradesForGrid} // Use filtered trades data like main grid
+      trades={filteredTradesForGrid}
       selectedPair={pair}
       previewMode
       darkMode={darkMode}
       reputationEnabled={repEnabled}
       reputationIntensity={repIntensity !== null ? Number(repIntensity) : 0}
       reputationMode={repMode}
+      liveFilter={liveFilter}
     />
   );
 

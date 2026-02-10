@@ -23,7 +23,7 @@ import RefreshControls from './components/RefreshControls';
 import SuperTrendPanel from "./SuperTrendPanel";
 import TradeComparePage from "./components/TradeComparePage";
 import SoundSettings from "./components/SoundSettings";
-import { API_BASE_URL, getApiBaseUrl, api, apiSignals, loadRuntimeApiConfig } from "./config";
+import { API_BASE_URL, getApiBaseUrl, api, loadRuntimeApiConfig } from "./config";
 
 // Animated SVG background for LAB title
 function AnimatedGraphBackground({ width = 400, height = 80, opacity = 0.4 }) {
@@ -132,6 +132,8 @@ const App = () => {
   const [demoDataHint, setDemoDataHint] = useState(null); // when API returns _meta.demoData, show hint instead of demo rows
   const [apiBaseForBanner, setApiBaseForBanner] = useState(() => (typeof getApiBaseUrl === "function" ? getApiBaseUrl() : ""));
   const [apiUnreachable, setApiUnreachable] = useState(false);
+  const [corsError, setCorsError] = useState(false);
+  const [localServerDown, setLocalServerDown] = useState(false);
   const [clientData, setClientData] = useState([]);
   const [logData, setLogData] = useState([]);
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
@@ -203,7 +205,7 @@ const App = () => {
       return saved
         ? JSON.parse(saved)
         : {
-            enabled: true,
+            enabled: false,
             volume: 0.7,
             mode: "tts",
             announceActions: { BUY: true, SELL: true },
@@ -213,7 +215,7 @@ const App = () => {
           };
     } catch {
       return {
-        enabled: true,
+        enabled: false,
         volume: 0.7,
         mode: "tts",
         announceActions: { BUY: true, SELL: true },
@@ -305,6 +307,27 @@ const [selectedActions, setSelectedActions] = useState({
   BUY: true,
   SELL: true,
 });
+const [liveFilter, setLiveFilter] = useState(() => {
+  const saved = localStorage.getItem("liveFilter");
+  if (saved) {
+    try {
+      return JSON.parse(saved);
+    } catch {
+      return { true: true, false: true };
+    }
+  }
+  return { true: true, false: true }; // Both checked by default (show all)
+});
+useEffect(() => {
+  localStorage.setItem("liveFilter", JSON.stringify(liveFilter));
+}, [liveFilter]);
+const [liveRadioMode, setLiveRadioMode] = useState(() => {
+  const saved = localStorage.getItem("liveRadioMode");
+  return saved === "true";
+});
+useEffect(() => {
+  localStorage.setItem("liveRadioMode", liveRadioMode ? "true" : "false");
+}, [liveRadioMode]);
 const [filterVisible, setFilterVisible] = useState(() => {
   const saved = localStorage.getItem("filterVisible");
   if (saved === "false") return false;
@@ -338,11 +361,8 @@ const [selectedIntervals, setSelectedIntervals] = useState(() => {
   
 
   const refreshAllData = useCallback(async () => {
-    const baseUrl = typeof window !== "undefined" ? getApiBaseUrl() : "";
-    console.log("[API DEBUG] refreshAllData() called. API base:", baseUrl || "(empty)");
     // On GitHub Pages with no API configured, skip requests to avoid 404 spam (getApiBaseUrl() updates after api-config.json loads)
     if (typeof window !== "undefined" && window.location?.hostname?.includes("github.io") && !getApiBaseUrl()) {
-      console.log("[API DEBUG] refreshAllData SKIP: github.io and no API base (waiting for api-config.json)");
       setTradeData([]);
       setMachines([]);
       setLogData([]);
@@ -355,33 +375,22 @@ const [selectedIntervals, setSelectedIntervals] = useState(() => {
     }
     try {
       setApiUnreachable(false);
-      
-      // Sync open positions from Binance to exchange_trade table
-      try {
-        console.log("[API DEBUG] sync open positions (via Node → Python)");
-        const syncRes = await fetch(api("/api/sync-open-positions"));
-        if (syncRes.ok) {
-          const syncJson = await syncRes.json();
-          console.log("[API DEBUG] Position sync result:", syncJson);
-        }
-      } catch (syncErr) {
-        console.warn("[API DEBUG] Position sync failed (non-critical):", syncErr?.message || syncErr);
-      }
-      
-      console.log("[API DEBUG] fetch /api/trades");
       const tradeRes = await fetch(api("/api/trades"));
       const tradeJson = tradeRes.ok ? await tradeRes.json() : { trades: [] };
       const trades = Array.isArray(tradeJson.trades) ? tradeJson.trades : [];
+      console.log("[DEBUG] Trades received:", trades.length, "rows");
       setDemoDataHint(tradeJson._meta?.demoData ? tradeJson._meta.hint || null : null);
 
-      console.log("[API DEBUG] fetch /api/machines");
       const machinesRes = await fetch(api("/api/machines"));
       const machinesJson = machinesRes.ok ? await machinesRes.json() : { machines: [] };
       const machinesList = Array.isArray(machinesJson.machines) ? machinesJson.machines : [];
+      console.log("[DEBUG] Machines received:", machinesList.length, "machines");
 
-      const logRes = await fetch("/logs.json");
+      // Use base path so logs.json works on GitHub Pages (e.g. /lab_live/logs.json)
+      const logsPath = `${(import.meta.env.BASE_URL || "/").replace(/\/?$/, "/")}logs.json`;
+      const logRes = await fetch(logsPath).catch(() => ({ ok: false }));
       const logJson = logRes.ok ? await logRes.json() : { logs: [] };
-      const logs = Array.isArray(logJson.logs) ? logJson.logs : [];
+      const logs = Array.isArray(logJson?.logs) ? logJson.logs : [];
 
       // Fetch SuperTrend data
       console.log("[API DEBUG] fetch /api/supertrend");
@@ -418,6 +427,12 @@ const [selectedIntervals, setSelectedIntervals] = useState(() => {
       setTradeData(trades);
       setLogData(logs);
       setClientData(unifiedMachines);
+      
+      // Clear CORS error if we got data successfully
+      if (corsError && trades.length > 0) {
+        console.log("[DEBUG] ✅ CORS error cleared - data loaded successfully");
+        setCorsError(false);
+      }
 
       // Preserve user selections: keep previous values; new machines default to true
       // Always select ALL machines (ignore active status) so every machine’s trades show
@@ -440,14 +455,22 @@ const [selectedIntervals, setSelectedIntervals] = useState(() => {
       console.log("[DEBUG] Counts by machine from trades:", countsByMachine);
       console.log("[DEBUG] Selected machines:", allMachinesSelected);
     } catch (error) {
-      console.log("[API DEBUG] refreshAllData ERROR:", error?.message || error);
       setTradeData([]);
       setDemoDataHint(null);
-      // On GitHub Pages, tunnel URL may have changed (ERR_NAME_NOT_RESOLVED = old URL). Refetch api-config and retry.
-      if (typeof window !== "undefined" && window.location?.hostname?.includes("github.io") && getApiBaseUrl()) {
+      if (isLocalhostOrigin()) {
+        setApiUnreachable(true);
+        if (!getLocalhostUseCloudFallback()) setLocalServerDown(true);
+      } else if (typeof window !== "undefined" && window.location?.hostname?.includes("github.io")) {
+        const currentApiBase = getApiBaseUrl();
+        console.log("[DEBUG] GitHub Pages error - current API base:", currentApiBase);
         setApiUnreachable(true);
         if (typeof loadRuntimeApiConfig === "function") {
-          loadRuntimeApiConfig().then(() => setTimeout(() => refreshAllData(), 4000));
+          console.log("[DEBUG] Reloading api-config.json...");
+          loadRuntimeApiConfig().then(() => {
+            const newApiBase = getApiBaseUrl();
+            console.log("[DEBUG] After reload - new API base:", newApiBase);
+            setTimeout(() => refreshAllData(), 4000);
+          });
         }
       }
     }
@@ -481,6 +504,18 @@ const filteredTradeData = useMemo(() => {
     const isMachineSelected = isSelected(selectedMachines, toMachineKey(trade.machineid));
     const isIntervalSelected = isSelected(selectedIntervals, trade.interval);
     const isActionSelected = isSelected(selectedActions, trade.action);
+    // Filter by exist_in_exchange: check if trade's value matches selected filter
+    const v = trade.exist_in_exchange ?? trade.Exist_in_exchange;
+    const isLive = v === true || v === "true" || v === 1 || v === "1";
+    if (liveFilter.true && liveFilter.false) {
+      // Both selected: show all
+    } else if (liveFilter.true && !isLive) {
+      return false; // Only true selected, but trade is false
+    } else if (liveFilter.false && isLive) {
+      return false; // Only false selected, but trade is true
+    } else if (!liveFilter.true && !liveFilter.false) {
+      return false; // Neither selected: show nothing
+    }
 
     // ✅ Handle missing or malformed Candle time
     if (!trade.candel_time) return false;
@@ -494,7 +529,7 @@ const filteredTradeData = useMemo(() => {
     return isSignalSelected && isMachineSelected && isIntervalSelected && isActionSelected && isDateInRange;
   });
   // console.log('[App.jsx] filteredTradeData:', filteredTradeData);
-}, [tradeData, selectedSignals, selectedMachines, selectedIntervals, selectedActions, fromDate, toDate, includeMinClose, fontSizeLevel]);
+}, [tradeData, selectedSignals, selectedMachines, selectedIntervals, selectedActions, fromDate, toDate, includeMinClose, fontSizeLevel, liveFilter]);
 
 // Debug: log machine coverage and trade counts (raw vs filtered)
 useEffect(() => {
@@ -1442,7 +1477,38 @@ useEffect(() => {
               <div className={`flex-1 min-h-screen transition-all duration-300 ${isSidebarOpen ? "ml-64" : "ml-20"} overflow-hidden relative bg-[#f5f6fa] dark:bg-black`}>
                 {/* Main content area, no extra margin-top */}
                 <div className="p-8 pt-2 overflow-x-auto">
-                  {apiUnreachable && (
+                  {corsError && (
+                    <div className="mb-4 p-4 rounded-lg bg-red-100 dark:bg-red-900/40 border border-red-400 dark:border-red-600 text-red-900 dark:text-red-100 text-sm">
+                      <strong className="block mb-2">❌ CORS Error: Cloud server not allowing GitHub Pages origin</strong>
+                      <p className="mb-2">The cloud server (150.241.244.130) is blocking requests from <code className="bg-red-200/60 dark:bg-red-800/60 px-1 rounded">https://loveleet.github.io</code>.</p>
+                      <p className="mb-2"><strong>Fix:</strong> Deploy the latest <code className="bg-red-200/60 dark:bg-red-800/60 px-1 rounded">server/server.js</code> to the cloud (it has CORS for GitHub Pages) and restart the Node app.</p>
+                      <ol className="list-decimal list-inside space-y-1 mt-2 text-xs">
+                        <li>From laptop: <code className="bg-red-200/60 dark:bg-red-800/60 px-1 rounded">export DEPLOY_HOST=root@150.241.244.130 && ./scripts/deploy-to-server.sh</code></li>
+                        <li>Or manually: <code className="bg-red-200/60 dark:bg-red-800/60 px-1 rounded">scp server/server.js root@150.241.244.130:/opt/apps/lab-trading-dashboard/server/</code></li>
+                        <li>On cloud: <code className="bg-red-200/60 dark:bg-red-800/60 px-1 rounded">sudo systemctl restart lab-trading-dashboard</code></li>
+                        <li>Verify: <code className="bg-red-200/60 dark:bg-red-800/60 px-1 rounded">curl -s http://localhost:10000/api/server-info</code> should show <code className="bg-red-200/60 dark:bg-red-800/60 px-1 rounded">hasGitHubPagesOrigin: true</code></li>
+                      </ol>
+                    </div>
+                  )}
+                  {localServerDown && (
+                    <div className="mb-4 p-4 rounded-lg bg-amber-100 dark:bg-amber-900/40 border border-amber-400 dark:border-amber-600 text-amber-900 dark:text-amber-100 text-sm">
+                      <strong className="block mb-2">Local server not running</strong>
+                      <p className="mb-2">The app is trying to use the local API at <code className="bg-amber-200/60 dark:bg-amber-800/60 px-1 rounded">localhost:10000</code> (via Vite proxy), but the connection was refused. Start the Node server in <code className="bg-amber-200/60 dark:bg-amber-800/60 px-1 rounded">lab-trading-dashboard/server</code> or use cloud data.</p>
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setLocalhostUseCloudFallback(true);
+                          setLocalServerDown(false);
+                          setApiUnreachable(false);
+                          refreshAllData();
+                        }}
+                        className="mt-2 px-3 py-1.5 rounded bg-amber-600 hover:bg-amber-700 text-white text-sm font-medium"
+                      >
+                        Use cloud data
+                      </button>
+                    </div>
+                  )}
+                  {apiUnreachable && !corsError && !localServerDown && (
                     <div className="mb-4 p-4 rounded-lg bg-amber-100 dark:bg-amber-900/40 border border-amber-400 dark:border-amber-600 text-amber-900 dark:text-amber-100 text-sm">
                       <strong className="block mb-2">API unreachable (tunnel URL may have changed)</strong>
                       <p className="mb-2">The current API URL could not be resolved (e.g. cloud restarted and got a new tunnel URL). The app will refetch the config and retry in a few seconds.</p>
@@ -1508,6 +1574,10 @@ useEffect(() => {
                       setIntervalRadioMode={setIntervalRadioMode}
                       actionRadioMode={actionRadioMode}
                       setActionRadioMode={setActionRadioMode}
+                      liveFilter={liveFilter}
+                      setLiveFilter={setLiveFilter}
+                      liveRadioMode={liveRadioMode}
+                      setLiveRadioMode={setLiveRadioMode}
                       signalToggleAll={signalToggleAll}
                       setSignalToggleAll={setSignalToggleAll}
                       machineToggleAll={machineToggleAll}
