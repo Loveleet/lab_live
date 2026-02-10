@@ -370,11 +370,12 @@ const ZOOM_KEYS = {
   infoLeft: "singleTradeLiveView_zoom_infoLeft",
   infoGrid: "singleTradeLiveView_zoom_infoGrid",
   backLeft: "singleTradeLiveView_zoom_backLeft",
+  backButtons: "singleTradeLiveView_zoom_backButtons",
   backRight: "singleTradeLiveView_zoom_backRight",
   chart: "singleTradeLiveView_zoom_chart",
 };
 // Allow a wider zoom range so font/size adjustments are more noticeable
-const ZOOM_CONFIG = { default: 100, min: 50, max: 220, step: 10 };
+const ZOOM_CONFIG = { default: 100, min: 50, max: 350, step: 10 };
 
 function InfoFieldsModal({ orderedKeys, allKeys, visibleKeys, setVisibleKeys, setFieldOrder, onClose }) {
   const [dragIndex, setDragIndex] = useState(null);
@@ -2349,19 +2350,6 @@ export default function SingleTradeLiveView({ formattedRow: initialFormattedRow,
   const [binanceColumnVisibility, setBinanceColumnVisibility] = useState({});
   const [binanceSettingsOpen, setBinanceSettingsOpen] = useState(false);
 
-  // Precompute effective/visible Binance columns + labels so JSX stays simple.
-  const hasBinancePositions = !!exchangePositionData?.positions?.length;
-  const binanceDefaultColumns = hasBinancePositions
-    ? ["__actions__", ...Object.keys(exchangePositionData.positions[0])]
-    : [];
-  const binanceEffectiveColumns = (binanceColumns.length ? binanceColumns : binanceDefaultColumns);
-  const binanceVisibleKeys = binanceEffectiveColumns.filter(
-    (key) => binanceColumnVisibility[key] !== false
-  );
-  const binanceVisibleLabels = binanceVisibleKeys.map((key) =>
-    key === "__actions__" ? "Actions" : key.replace(/([A-Z])/g, " $1").trim()
-  );
-
   useEffect(() => {
     if (exchangePositionData?.positions?.length) {
       const keys = Object.keys(exchangePositionData.positions[0]);
@@ -2485,7 +2473,23 @@ export default function SingleTradeLiveView({ formattedRow: initialFormattedRow,
   const [zoomInfoLeft, zoomOutInfoLeft, zoomInInfoLeft] = useZoomLevel(ZOOM_KEYS.infoLeft);
   const [zoomInfoGrid, zoomOutInfoGrid, zoomInInfoGrid] = useZoomLevel(ZOOM_KEYS.infoGrid);
   const [zoomBackLeft, zoomOutBackLeft, zoomInBackLeft] = useZoomLevel(ZOOM_KEYS.backLeft);
+  const [zoomBinanceButtons, zoomOutBinanceButtons, zoomInBinanceButtons] = useZoomLevel(ZOOM_KEYS.backButtons);
   const [zoomChart, zoomOutChart, zoomInChart] = useZoomLevel(ZOOM_KEYS.chart);
+
+  // Binance table: text zoom vs button zoom (separate adjusters)
+  const hasBinancePositions = !!exchangePositionData?.positions?.length;
+  const binanceDefaultColumns = hasBinancePositions
+    ? ["__actions__", ...Object.keys(exchangePositionData.positions[0])]
+    : [];
+  const binanceEffectiveColumns = (binanceColumns.length ? binanceColumns : binanceDefaultColumns);
+  const binanceVisibleKeys = binanceEffectiveColumns.filter(
+    (key) => binanceColumnVisibility[key] !== false
+  );
+  const binanceVisibleLabels = binanceVisibleKeys.map((key) =>
+    key === "__actions__" ? "Actions" : key.replace(/([A-Z])/g, " $1").trim()
+  );
+  const binanceFontSizePx = (zoomBackLeft / 100) * 14;
+  const binanceButtonFontSizePx = Math.max(8, Math.round((zoomBinanceButtons / 100) * 10));
   const [alertRules, setAlertRules] = useState(() => {
     try {
       const raw = localStorage.getItem(SIGNAL_ALERT_RULES_KEY);
@@ -3017,6 +3021,14 @@ export default function SingleTradeLiveView({ formattedRow: initialFormattedRow,
                 label="Zoom Binance table"
                 className="min-w-[32px] min-h-[32px] flex items-center justify-center rounded-lg bg-white/20 hover:bg-white/30 text-white text-xs font-bold disabled:opacity-40"
               />
+              <span className="text-white/90 text-xs mr-1 ml-1">Buttons:</span>
+              <ZoomControls
+                onDecrease={zoomOutBinanceButtons}
+                onIncrease={zoomInBinanceButtons}
+                current={zoomBinanceButtons}
+                label="Binance button size"
+                className="min-w-[32px] min-h-[32px] flex items-center justify-center rounded-lg bg-white/20 hover:bg-white/30 text-white text-xs font-bold disabled:opacity-40"
+              />
               {exchangePositionData?.positions?.length ? (
                 <button
                   type="button"
@@ -3054,10 +3066,7 @@ export default function SingleTradeLiveView({ formattedRow: initialFormattedRow,
                         onClose={() => setBinanceSettingsOpen(false)}
                       />
                     )}
-                    <table
-                      className="w-full border-collapse border border-gray-300 dark:border-gray-600"
-                      style={{ fontSize: `${(zoomBackLeft / 100) * 14}px` }}
-                    >
+                    <table className="w-full border-collapse border border-gray-300 dark:border-gray-600">
                       <thead>
                         <tr className="bg-teal-100 dark:bg-teal-900/40">
                           {binanceVisibleKeys.map((key, idx) => {
@@ -3072,7 +3081,17 @@ export default function SingleTradeLiveView({ formattedRow: initialFormattedRow,
                                 className="border border-gray-300 dark:border-gray-600 px-2 py-1 text-left font-medium text-teal-800 dark:text-teal-200 whitespace-nowrap max-w-[80px] truncate"
                                 title={baseLabel}
                               >
-                                {headerLabel}
+                                <div
+                                  className="flex flex-col leading-tight"
+                                  style={{ fontSize: `${binanceFontSizePx}px` }}
+                                >
+                                  <span className="truncate">{headerLabel}</span>
+                                  {headerLabel !== baseLabel && (
+                                    <span className="text-[10px] text-teal-700/80 dark:text-teal-200/80 truncate">
+                                      {baseLabel}
+                                    </span>
+                                  )}
+                                </div>
                               </th>
                             );
                           })}
@@ -3101,13 +3120,13 @@ export default function SingleTradeLiveView({ formattedRow: initialFormattedRow,
                                     <td
                                       key="__actions__"
                                       className="border border-gray-200 dark:border-gray-700 px-2 py-1 whitespace-nowrap"
-                                      style={{ fontSize: "10px" }}
+                                      style={{ fontSize: `${binanceButtonFontSizePx}px` }}
                                     >
                                       <div className="flex flex-wrap gap-1">
                                         <button
                                           type="button"
                                           onClick={() => setActionModal({ open: true, type: "autoPilot" })}
-                                          className="px-2 py-0.5 rounded bg-violet-600 hover:bg-violet-700 text-white text-[10px] font-semibold"
+                                          className="px-2 py-0.5 rounded bg-violet-600 hover:bg-violet-700 text-white font-semibold"
                                           title="Enable Auto-Pilot"
                                         >
                                           Auto
@@ -3115,7 +3134,7 @@ export default function SingleTradeLiveView({ formattedRow: initialFormattedRow,
                                         <button
                                           type="button"
                                           onClick={() => setActionModal({ open: true, type: "endTrade" })}
-                                          className="px-2 py-0.5 rounded bg-red-600 hover:bg-red-700 text-white text-[10px] font-semibold"
+                                          className="px-2 py-0.5 rounded bg-red-600 hover:bg-red-700 text-white font-semibold"
                                           title="End Trade"
                                         >
                                           End
@@ -3123,7 +3142,7 @@ export default function SingleTradeLiveView({ formattedRow: initialFormattedRow,
                                         <button
                                           type="button"
                                           onClick={() => setActionModal({ open: true, type: "hedge" })}
-                                          className="px-2 py-0.5 rounded bg-amber-600 hover:bg-amber-700 text-white text-[10px] font-semibold"
+                                          className="px-2 py-0.5 rounded bg-amber-600 hover:bg-amber-700 text-white font-semibold"
                                           title="Hedge"
                                         >
                                           Hedge
@@ -3134,12 +3153,12 @@ export default function SingleTradeLiveView({ formattedRow: initialFormattedRow,
                                             value={stopPrice}
                                             onChange={(e) => setStopPrice(e.target.value)}
                                             placeholder="Stop"
-                                            className="border border-gray-400 dark:border-gray-600 rounded px-1 py-0.5 bg-white dark:bg-[#222] text-[10px] w-16"
+                                            className="border border-gray-400 dark:border-gray-600 rounded px-1 py-0.5 bg-white dark:bg-[#222] w-16"
                                           />
                                           <button
                                             type="button"
                                             onClick={() => setActionModal({ open: true, type: "setStopPrice" })}
-                                            className="px-2 py-0.5 rounded bg-gray-600 hover:bg-gray-700 text-white text-[10px] font-semibold"
+                                            className="px-2 py-0.5 rounded bg-gray-600 hover:bg-gray-700 text-white font-semibold"
                                             title="Set Stop Price"
                                           >
                                             Set
@@ -3148,7 +3167,7 @@ export default function SingleTradeLiveView({ formattedRow: initialFormattedRow,
                                         <button
                                           type="button"
                                           onClick={() => setActionModal({ open: true, type: "addInvestment" })}
-                                          className="px-2 py-0.5 rounded bg-emerald-600 hover:bg-emerald-700 text-white text-[10px] font-semibold"
+                                          className="px-2 py-0.5 rounded bg-emerald-600 hover:bg-emerald-700 text-white font-semibold"
                                           title="Add Investment"
                                         >
                                           +Inv
@@ -3156,7 +3175,7 @@ export default function SingleTradeLiveView({ formattedRow: initialFormattedRow,
                                         <button
                                           type="button"
                                           onClick={() => setActionModal({ open: true, type: "clear" })}
-                                          className="px-2 py-0.5 rounded bg-slate-600 hover:bg-slate-700 text-white text-[10px] font-semibold"
+                                          className="px-2 py-0.5 rounded bg-slate-600 hover:bg-slate-700 text-white font-semibold"
                                           title="Clear"
                                         >
                                           Clear
@@ -3168,7 +3187,11 @@ export default function SingleTradeLiveView({ formattedRow: initialFormattedRow,
                                 const pl = parseFloat(pos.unRealizedProfit || 0);
                                 const plClass = key === "unRealizedProfit" ? (pl < 0 ? "text-red-600 font-medium" : "text-green-600 font-medium") : "";
                                 return (
-                                  <td key={key} className={`border border-gray-200 dark:border-gray-700 px-2 py-1 ${plClass}`}>
+                                  <td
+                                    key={key}
+                                    className={`border border-gray-200 dark:border-gray-700 px-2 py-1 ${plClass}`}
+                                    style={{ fontSize: `${binanceFontSizePx}px` }}
+                                  >
                                     {formatVal(key, pos[key])}
                                   </td>
                                 );
