@@ -310,11 +310,11 @@ function ConfirmActionModal({
                 }
               }}
               placeholder="Password"
-              className="w-full border-2 border-gray-300 dark:border-gray-600 rounded-lg px-3 py-2 bg-white dark:bg-[#333] text-[#222] dark:text-gray-200 mb-3"
+              className="w-full border-2 border-gray-300 dark:border-gray-600 rounded-lg px-3 py-2 bg-white dark:bg-[#333] text-[#222] dark:text-white mb-3"
               autoFocus
             />
             {extraLabel && extraValue != null && (
-              <p className="text-sm text-gray-500 dark:text-gray-400 mb-2">{extraLabel}: {extraValue}</p>
+              <p className="text-sm text-gray-500 dark:text-white/90 mb-2">{extraLabel}: {extraValue}</p>
             )}
           </>
         )}
@@ -333,7 +333,7 @@ function ConfirmActionModal({
                 }
               }}
               placeholder={amountPlaceholder}
-              className="w-full border-2 border-gray-300 dark:border-gray-600 rounded-lg px-3 py-2 bg-white dark:bg-[#333] text-[#222] dark:text-gray-200 mb-3"
+              className="w-full border-2 border-gray-300 dark:border-gray-600 rounded-lg px-3 py-2 bg-white dark:bg-[#333] text-[#222] dark:text-white mb-3"
               autoFocus
             />
           </>
@@ -425,7 +425,7 @@ function InfoFieldsModal({ orderedKeys, allKeys, visibleKeys, setVisibleKeys, se
         onClick={(e) => e.stopPropagation()}
       >
         <h3 className="font-semibold text-lg mb-2">Information fields</h3>
-        <p className="text-sm text-gray-500 dark:text-gray-400 mb-4">
+        <p className="text-sm text-gray-500 dark:text-white/90 mb-4">
           Toggle visibility and drag to reorder. Only checked fields are shown.
         </p>
         <ul className="space-y-1">
@@ -442,7 +442,7 @@ function InfoFieldsModal({ orderedKeys, allKeys, visibleKeys, setVisibleKeys, se
                 overIndex === index ? "border-teal-500 bg-teal-500/10" : "border-transparent hover:bg-gray-100 dark:hover:bg-gray-800"
               } ${dragIndex === index ? "opacity-60" : ""}`}
             >
-              <span className="text-gray-400 select-none" title="Drag to reorder">⋮⋮</span>
+              <span className="text-gray-400 dark:text-white/70 select-none" title="Drag to reorder">⋮⋮</span>
               <input
                 type="checkbox"
                 id={`info_${key}`}
@@ -505,7 +505,7 @@ function SectionOrderModal({ sectionOrder, setSectionOrder, onClose }) {
         onClick={(e) => e.stopPropagation()}
       >
         <h3 className="font-semibold text-lg mb-2">Section order</h3>
-        <p className="text-sm text-gray-500 dark:text-gray-400 mb-4">
+        <p className="text-sm text-gray-500 dark:text-white/90 mb-4">
           Drag to set the order of sections (top to bottom).
         </p>
         <ul className="space-y-1">
@@ -522,7 +522,7 @@ function SectionOrderModal({ sectionOrder, setSectionOrder, onClose }) {
                 overIndex === index ? "border-teal-500 bg-teal-500/10" : "border-transparent hover:bg-gray-100 dark:hover:bg-gray-800"
               } ${dragIndex === index ? "opacity-60" : ""}`}
             >
-              <span className="text-gray-400 select-none" title="Drag to reorder">⋮⋮</span>
+              <span className="text-gray-400 dark:text-white/70 select-none" title="Drag to reorder">⋮⋮</span>
               <span className="font-medium">{SECTION_LABELS[id] || id}</span>
             </li>
           ))}
@@ -591,7 +591,7 @@ function BinanceColumnsModal({ columns, setColumns, visibility, setVisibility, o
         onClick={(e) => e.stopPropagation()}
       >
         <h3 className="font-semibold text-xl mb-1">Binance columns</h3>
-        <p className="text-sm text-gray-500 dark:text-gray-400 mb-4">
+        <p className="text-sm text-gray-500 dark:text-white/90 mb-4">
           Drag to reorder; check or uncheck to show or hide columns.
         </p>
         <ul className="space-y-1 overflow-auto flex-1 min-h-0 pr-2">
@@ -615,7 +615,7 @@ function BinanceColumnsModal({ columns, setColumns, visibility, setVisibility, o
                   overIndex === index ? "border-teal-500 bg-teal-500/10" : "border-transparent hover:bg-gray-100 dark:hover:bg-gray-800"
                 } ${dragIndex === index ? "opacity-60" : ""}`}
               >
-                <span className="text-gray-400 select-none shrink-0" title="Drag to reorder">⋮⋮</span>
+                <span className="text-gray-400 dark:text-white/70 select-none shrink-0" title="Drag to reorder">⋮⋮</span>
                 <input
                   type="checkbox"
                   id={`binance_${col}`}
@@ -2697,7 +2697,7 @@ export default function SingleTradeLiveView({ formattedRow: initialFormattedRow,
   }, [handleExecute, handleEndTrade, handleAutoPilot, handleHedge, handleSetStopPrice, handleAddInvestment, handleClear]);
 
   return (
-    <div className="fixed inset-0 flex flex-col bg-[#f5f6fa] dark:bg-[#0f0f0f] text-[#222] dark:text-gray-200 overflow-hidden w-full">
+    <div className="fixed inset-0 flex flex-col bg-[#f5f6fa] dark:bg-[#0f0f0f] text-[#222] dark:text-white overflow-hidden w-full">
       <div className="flex-none flex items-center justify-between gap-2 px-3 sm:px-4 py-2 bg-[#181818] text-white border-b border-gray-700 shadow-md">
         <button
           type="button"
@@ -2765,7 +2765,7 @@ export default function SingleTradeLiveView({ formattedRow: initialFormattedRow,
                   label="Zoom"
                   className="min-w-[28px] min-h-[28px] flex items-center justify-center rounded bg-gray-300 hover:bg-gray-400 dark:bg-gray-600 dark:hover:bg-gray-500 disabled:opacity-40 text-gray-800 dark:text-white text-xs font-bold"
                 />
-                <span className="text-xs font-semibold text-gray-600 dark:text-gray-400 truncate">
+                <span className="text-xs font-semibold text-gray-600 dark:text-white truncate">
                   {signalsData?.symbol || signalSymbol || "—"} signals
                 </span>
                 <div className="ml-auto flex items-center gap-2">
@@ -2921,7 +2921,7 @@ export default function SingleTradeLiveView({ formattedRow: initialFormattedRow,
                             {columns.map((col, idx) => (
                               <th
                                 key={`${col.iv}-${col.label}-${idx}`}
-                                className={`border border-gray-300 dark:border-gray-600 px-0.5 py-0.5 text-center font-medium text-gray-600 dark:text-gray-400 whitespace-nowrap ${getGroupColor(col.groupIndex)}`}
+                                className={`border border-gray-300 dark:border-gray-600 px-0.5 py-0.5 text-center font-medium text-gray-600 dark:text-white whitespace-nowrap ${getGroupColor(col.groupIndex)}`}
                               >
                                 {col.iv} {col.label}
                               </th>
@@ -2958,7 +2958,7 @@ export default function SingleTradeLiveView({ formattedRow: initialFormattedRow,
                                 return (
                                   <td
                                     key={`${col.iv}-${col.label}-${idx}`}
-                                    className={`border border-gray-200 dark:border-gray-600 px-0.5 py-0.5 text-center text-gray-800 dark:text-gray-200 truncate max-w-[60px] ${cellBg} ${alertClasses}`}
+                                    className={`border border-gray-200 dark:border-gray-600 px-0.5 py-0.5 text-center text-gray-800 dark:text-white truncate max-w-[60px] ${cellBg} ${alertClasses}`}
                                     title={str}
                                   >
                                     {str}
@@ -2973,7 +2973,7 @@ export default function SingleTradeLiveView({ formattedRow: initialFormattedRow,
                     );
                   })()
                 ) : (
-                  <div className="flex items-center justify-center h-full text-gray-500 dark:text-gray-400 text-center p-2">Loading signals…</div>
+                  <div className="flex items-center justify-center h-full text-gray-500 dark:text-white text-center p-2">Loading signals…</div>
                 )}
               </div>
             </div>
@@ -2991,7 +2991,7 @@ export default function SingleTradeLiveView({ formattedRow: initialFormattedRow,
                     <div className="font-semibold uppercase tracking-wide text-teal-700 dark:text-teal-400 mb-1 truncate" style={{ fontSize: "1em" }} title={key.replace(/_/g, " ")}>
                       {key.replace(/_/g, " ")}
                     </div>
-                    <div className="font-medium text-[#222] dark:text-gray-200 break-words leading-snug max-h-14 overflow-hidden" style={{ fontSize: "1em" }} title={stripHtml(row[key])}>
+                    <div className="font-medium text-[#222] dark:text-white break-words leading-snug max-h-14 overflow-hidden" style={{ fontSize: "1em" }} title={stripHtml(row[key])}>
                       {stripHtml(row[key])}
                     </div>
                   </div>
@@ -3047,12 +3047,12 @@ export default function SingleTradeLiveView({ formattedRow: initialFormattedRow,
             style={{ height: backDataHeight }}
           >
             <div
-              className="w-full border-2 border-dashed border-gray-300 dark:border-gray-600 rounded-xl flex flex-col items-center justify-center text-gray-500 bg-gray-50 dark:bg-[#0d0d0d] overflow-hidden flex-shrink-0"
+              className="w-full border-2 border-dashed border-gray-300 dark:border-gray-600 rounded-xl flex flex-col items-center justify-center text-gray-800 dark:text-white bg-gray-50 dark:bg-[#0d0d0d] overflow-hidden flex-shrink-0"
               style={{ minHeight: backLeftHeight }}
             >
               <div className="flex flex-col gap-2 mb-2 flex-wrap justify-center p-2 overflow-auto w-full">
                 {!isExistInExchange ? (
-                  <span className="text-gray-500 dark:text-gray-400 text-center">Trade not in exchange — no live data</span>
+                  <span className="text-gray-500 dark:text-white text-center">Trade not in exchange — no live data</span>
                 ) : exchangePositionData?.ok === false ? (
                   <span className="text-amber-600 dark:text-amber-400 text-center">{exchangePositionData?.error || "Failed to fetch"}</span>
                 ) : hasBinancePositions ? (
@@ -3203,9 +3203,9 @@ export default function SingleTradeLiveView({ formattedRow: initialFormattedRow,
                     </table>
                   </div>
                 ) : isExistInExchange && exchangePositionData?.ok ? (
-                  <span className="text-gray-500 dark:text-gray-400 text-center">No open position for {signalSymbol}</span>
+                  <span className="text-gray-500 dark:text-white text-center">No open position for {signalSymbol}</span>
                 ) : (
-                  <span className="text-gray-500 dark:text-gray-400 text-center">Loading exchange data…</span>
+                  <span className="text-gray-500 dark:text-white text-center">Loading exchange data…</span>
                 )}
               </div>
             </div>
