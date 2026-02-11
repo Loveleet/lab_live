@@ -219,6 +219,7 @@ function ConfirmActionModal({
   const [amount, setAmount] = useState("");
   const [error, setError] = useState("");
   const [success, setSuccess] = useState(false);
+  const [isSubmitting, setIsSubmitting] = useState(false);
 
   const title = ACTION_LABELS[actionType] || actionType;
   const showAmountStep = requireAmount && step === "amount";
@@ -231,6 +232,7 @@ function ConfirmActionModal({
     setAmount("");
     setError("");
     setSuccess(false);
+    setIsSubmitting(false);
   }, []);
 
   useEffect(() => {
@@ -264,7 +266,9 @@ function ConfirmActionModal({
   };
 
   const doConfirm = async () => {
+    if (isSubmitting) return;
     setError("");
+    setIsSubmitting(true);
     try {
       const payload = { password: (password || "").trim() };
       if (requireAmount) payload.amount = amount.trim();
@@ -274,6 +278,7 @@ function ConfirmActionModal({
       setTimeout(handleClose, 1500);
     } catch (e) {
       setError(e?.message || "Failed");
+      setIsSubmitting(false);
     }
   };
 
@@ -345,17 +350,17 @@ function ConfirmActionModal({
               Cancel
             </button>
             {showPasswordStep && (
-              <button type="button" onClick={handlePasswordNext} className="px-4 py-1.5 rounded-lg bg-teal-600 text-white">
-                {requireAmount ? "Next" : "Confirm"}
+              <button type="button" onClick={handlePasswordNext} disabled={isSubmitting} className="px-4 py-1.5 rounded-lg bg-teal-600 text-white disabled:opacity-50 disabled:cursor-not-allowed">
+                {isSubmitting ? "…" : (requireAmount ? "Next" : "Confirm")}
               </button>
             )}
             {showAmountStep && (
               <>
-                <button type="button" onClick={() => setStep("password")} className="px-3 py-1.5 rounded-lg bg-gray-200 dark:bg-gray-700">
+                <button type="button" onClick={() => setStep("password")} disabled={isSubmitting} className="px-3 py-1.5 rounded-lg bg-gray-200 dark:bg-gray-700 disabled:opacity-50 disabled:cursor-not-allowed">
                   Back
                 </button>
-                <button type="button" onClick={handleAmountConfirm} className="px-4 py-1.5 rounded-lg bg-teal-600 text-white">
-                  Confirm
+                <button type="button" onClick={handleAmountConfirm} disabled={isSubmitting} className="px-4 py-1.5 rounded-lg bg-teal-600 text-white disabled:opacity-50 disabled:cursor-not-allowed">
+                  {isSubmitting ? "…" : "Confirm"}
                 </button>
               </>
             )}
@@ -2278,21 +2283,15 @@ export default function SingleTradeLiveView({ formattedRow: initialFormattedRow,
           if (!Number.isNaN(n) && n > 0) return n;
         }
       } catch {}
-      return 20;
+      return 60;
     })();
     let cancelled = false;
     const poll = async () => {
       try {
-        const res = await fetch(`${API_BASE_URL}/api/trades`);
+        const res = await fetch(api(`/api/trade?unique_id=${encodeURIComponent(uniqueId)}`));
         if (cancelled || !res.ok) return;
         const json = await res.json();
-        const data = Array.isArray(json?.trades) ? json.trades : (Array.isArray(json) ? json : []);
-        if (cancelled || !data.length) return;
-        const trade = data.find(
-          (t) =>
-            (t.unique_id != null && String(t.unique_id) === uniqueId) ||
-            (t.Unique_ID != null && String(t.Unique_ID) === uniqueId)
-        );
+        const trade = json?.trade ?? null;
         if (cancelled || !trade) return;
         setRawTrade(trade);
         setFormattedRow(formatTradeData(trade, 0));
@@ -2677,26 +2676,41 @@ export default function SingleTradeLiveView({ formattedRow: initialFormattedRow,
     });
   }, [rawTrade?.unique_id, callPythonApi]);
 
-  const handleAutoPilot = useCallback(async ({ password }) => {
-    // Empty base is valid on localhost (relative URL → Vite proxy) and on cloud (same-origin)
+  const isAutoEnabled = rawTrade?.auto === true || rawTrade?.auto === "true" || rawTrade?.auto === 1;
+  const handleAutoPilot = useCallback(async ({ password, extraValue }) => {
     const unique_id = rawTrade?.unique_id;
+    const machineid = rawTrade?.machineid;
+    const enabled = extraValue === "enable";
     const url = api("/api/autopilot");
     const res = await fetch(url, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ unique_id, password: (password || "").trim(), enabled: true }),
+      body: JSON.stringify({ unique_id, machineid, password: (password || "").trim(), enabled }),
     });
+    const data = await res.json().catch(() => ({ message: res.statusText }));
     if (!res.ok) {
-      const err = await res.json().catch(() => ({ message: res.statusText }));
-      const msg = err.message || err.detail || res.statusText;
+      const msg = data.message || data.detail || data.error || res.statusText;
       if (res.status === 404) {
-        throw new Error("API endpoint not found. Is the server running? If using GitHub Pages, wait for api-config to load and try again.");
+        throw new Error(data.message || "API endpoint not found. Is the server running? If using GitHub Pages, wait for api-config to load and try again.");
       }
       throw new Error(msg || `API error ${res.status}`);
     }
-    const data = await res.json().catch(() => ({}));
+    if (data && data.ok === false) {
+      throw new Error(data.message || "Autopilot update failed");
+    }
+    try {
+      const tradeRes = await fetch(api(`/api/trade?unique_id=${encodeURIComponent(unique_id)}`));
+      if (tradeRes.ok) {
+        const tradeJson = await tradeRes.json();
+        const trade = tradeJson?.trade ?? null;
+        if (trade) {
+          setRawTrade(trade);
+          setFormattedRow(formatTradeData(trade, 0));
+        }
+      }
+    } catch (_) {}
     return data;
-  }, [rawTrade?.unique_id]);
+  }, [rawTrade?.unique_id, rawTrade?.machineid]);
 
   const getConfirmHandler = useCallback((type) => {
     switch (type) {
@@ -3140,11 +3154,11 @@ export default function SingleTradeLiveView({ formattedRow: initialFormattedRow,
                                       <div className="flex flex-wrap gap-1">
                                         <button
                                           type="button"
-                                          onClick={() => setActionModal({ open: true, type: "autoPilot" })}
+                                          onClick={() => setActionModal({ open: true, type: "autoPilot", autoEnable: !isAutoEnabled })}
                                           className="px-2 py-0.5 rounded bg-violet-600 hover:bg-violet-700 text-white font-semibold"
-                                          title="Enable Auto-Pilot"
+                                          title={isAutoEnabled ? "Disable Auto-Pilot" : "Enable Auto-Pilot"}
                                         >
-                                          Auto
+                                          {isAutoEnabled ? "Auto Disable" : "Auto Enable"}
                                         </button>
                                         <button
                                           type="button"
@@ -3316,8 +3330,8 @@ export default function SingleTradeLiveView({ formattedRow: initialFormattedRow,
         requireAmount={actionModal.type === "execute" || actionModal.type === "addInvestment"}
         amountLabel={actionModal.type === "execute" ? "Amount" : "Investment amount"}
         amountPlaceholder={actionModal.type === "execute" ? "0" : "0"}
-        extraLabel={actionModal.type === "setStopPrice" ? "Stop price" : undefined}
-        extraValue={actionModal.type === "setStopPrice" ? stopPrice : undefined}
+        extraLabel={actionModal.type === "setStopPrice" ? "Stop price" : actionModal.type === "autoPilot" ? "Action" : undefined}
+        extraValue={actionModal.type === "setStopPrice" ? stopPrice : actionModal.type === "autoPilot" ? (actionModal.autoEnable ? "enable" : "disable") : undefined}
         onConfirm={actionModal.type ? getConfirmHandler(actionModal.type) : undefined}
       />
     </div>

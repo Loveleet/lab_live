@@ -156,6 +156,20 @@ app.get("/api/trades", async (req, res) => {
   }
 });
 
+// ✅ API: Fetch single trade by unique_id
+app.get("/api/trade", async (req, res) => {
+  const unique_id = (req.query.unique_id || "").trim();
+  if (!unique_id) return res.status(400).json({ error: "unique_id query param required" });
+  try {
+    const result = await pool.query("SELECT * FROM alltraderecords WHERE unique_id = $1 LIMIT 1", [unique_id]);
+    const trade = result.rows[0] || null;
+    res.json({ trade });
+  } catch (error) {
+    console.error("❌ [Trade] Error:", error.message);
+    res.status(500).json({ error: error.message || "Failed to fetch trade" });
+  }
+});
+
 // ✅ API: Fetch Machines
 app.get("/api/machines", async (req, res) => {
   try {
@@ -292,7 +306,7 @@ app.get("/api/autopilot", (req, res) => {
   res.json({ enabled: !!(entry && entry.enabled) });
 });
 app.post("/api/autopilot", (req, res) => {
-  const { unique_id, password, enabled } = req.body || {};
+  const { unique_id, machineid, password, enabled } = req.body || {};
   if (!(unique_id && typeof unique_id === "string")) return res.status(400).json({ error: "unique_id required" });
   autopilotStore.set(unique_id.trim(), { enabled: !!enabled, updatedAt: new Date().toISOString() });
   res.json({ ok: true, enabled: !!enabled });
