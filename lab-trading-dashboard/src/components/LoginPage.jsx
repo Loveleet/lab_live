@@ -1,7 +1,8 @@
 import React, { useState } from "react";
-import { validatePassword, setAuthenticated } from "../auth";
+import { loginWithCredentials } from "../auth";
 
 export default function LoginPage({ onLogin }) {
+  const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
@@ -11,13 +12,8 @@ export default function LoginPage({ onLogin }) {
     setError("");
     setLoading(true);
     try {
-      const ok = await validatePassword(password);
-      if (ok) {
-        setAuthenticated(true);
-        onLogin();
-      } else {
-        setError("Invalid password");
-      }
+      await loginWithCredentials(email, password);
+      onLogin();
     } catch (err) {
       setError(err?.message || "Login failed");
     } finally {
@@ -34,6 +30,22 @@ export default function LoginPage({ onLogin }) {
         </div>
         <form onSubmit={handleSubmit} className="space-y-4">
           <div>
+            <label htmlFor="login-email" className="block text-sm font-medium text-gray-300 mb-1">
+              Email
+            </label>
+            <input
+              id="login-email"
+              type="email"
+              value={email}
+              onChange={(e) => { setEmail(e.target.value); setError(""); }}
+              placeholder="your@email.com"
+              autoComplete="email"
+              autoFocus
+              disabled={loading}
+              className="w-full px-4 py-3 rounded-lg border border-gray-600 bg-[#222] text-white placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-teal-500 focus:border-transparent disabled:opacity-60"
+            />
+          </div>
+          <div>
             <label htmlFor="login-password" className="block text-sm font-medium text-gray-300 mb-1">
               Password
             </label>
@@ -43,7 +55,7 @@ export default function LoginPage({ onLogin }) {
               value={password}
               onChange={(e) => { setPassword(e.target.value); setError(""); }}
               placeholder="Enter password"
-              autoFocus
+              autoComplete="current-password"
               disabled={loading}
               className="w-full px-4 py-3 rounded-lg border border-gray-600 bg-[#222] text-white placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-teal-500 focus:border-transparent disabled:opacity-60"
             />

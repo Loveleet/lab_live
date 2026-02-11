@@ -11,9 +11,11 @@ export default defineConfig({
   plugins: [react()],
   server: {
     proxy: {
-      // Only proxy /api/... (e.g. /api/tunnel-url), not /api-config.json (so config is served from public/ or returns 404)
-      // Proxies to main Node server on port 10000 (same as cloud config)
       '/api/': {
+        target: 'http://localhost:10000',
+        changeOrigin: true,
+      },
+      '/auth/': {
         target: 'http://localhost:10000',
         changeOrigin: true,
       },

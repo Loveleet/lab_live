@@ -7,7 +7,7 @@ import PairStatsFilters from './PairStatsFilters';
 import { DndProvider, useDrag, useDrop } from 'react-dnd';
 import { HTML5Backend } from 'react-dnd-html5-backend';
 import * as XLSX from 'xlsx';
-import { api, apiSignals } from '../config';
+import { api, apiFetch, apiSignals, apiSignalsFetch } from '../config';
 
 // loveleet work
 function useQuery() {
@@ -527,7 +527,7 @@ const LiveTradeViewPage = () => {
   useEffect(() => {
     const fetchMachines = async () => {
       try {
-        const res = await fetch(api('/api/machines'));
+        const res = await apiFetch('/api/machines');
         const data = await res.json();
         setMachines(Array.isArray(data.machines) ? data.machines : []);
       } catch (e) {
@@ -605,7 +605,7 @@ const LiveTradeViewPage = () => {
   const [trades, setTrades] = useState([]);
   useEffect(() => {
     // Fetch all trades like the main grid does, then filter by pair
-    fetch(api('/api/trades'))
+    apiFetch('/api/trades')
       .then(res => res.json())
       .then(data => {
         const allTrades = Array.isArray(data.trades) ? data.trades : [];
@@ -642,7 +642,7 @@ const LiveTradeViewPage = () => {
     if (!signalSymbol) return;
     const callCalculateSignals = async () => {
       try {
-        const res = await fetch(apiSignals('/api/calculate-signals'), {
+        const res = await apiSignalsFetch('/api/calculate-signals', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ symbol: signalSymbol, candle: 'regular' }),
@@ -685,7 +685,7 @@ const LiveTradeViewPage = () => {
     
 
     
-    fetch(url)
+    apiFetch(url)
       .then(res => {
 
 
@@ -798,7 +798,7 @@ const LiveTradeViewPage = () => {
               ? api(`/api/bot-event-logs?uid=${encodeURIComponent(uid)}&page=1&limit=${newRowsPerPage}`)
         : api(`/api/bot-event-logs?page=1&limit=${newRowsPerPage}`);
     
-    fetch(url)
+    apiFetch(url)
       .then(res => res.json())
       .then(data => {
         const logsArray = Array.isArray(data.logs) ? data.logs : [];
@@ -826,7 +826,7 @@ const LiveTradeViewPage = () => {
               ? api(`/api/bot-event-logs?uid=${encodeURIComponent(uid)}&page=${newPage}&limit=${logsPerPage}`)
         : api(`/api/bot-event-logs?page=${newPage}&limit=${logsPerPage}`);
     
-    fetch(url)
+    apiFetch(url)
       .then(res => res.json())
       .then(data => {
         const logsArray = Array.isArray(data.logs) ? data.logs : [];
@@ -1894,7 +1894,7 @@ const LiveTradeViewPage = () => {
     let url = api(`/api/bot-event-logs?page=${wholeCurrentPage}&limit=${logsPerPage}`);
     url += `&sortKey=${wholeSortKey}&sortDirection=${wholeSortDirection}`;
     if (uid) url += `&uid=${encodeURIComponent(uid)}`;
-    fetch(url)
+    apiFetch(url)
       .then(res => res.json())
       .then(data => {
         setWholeLogs(Array.isArray(data.logs) ? data.logs : []);
@@ -1975,7 +1975,7 @@ const LiveTradeViewPage = () => {
       url += `&sortKey=${wholeSortKey}&sortDirection=${wholeSortDirection}`;
       if (uid) url += `&uid=${encodeURIComponent(uid)}`;
       try {
-        const res = await fetch(url);
+        const res = await apiFetch(url);
         const data = await res.json();
         const allRows = Array.isArray(data.logs) ? data.logs : [];
         const exportRows = getExportRows(allRows);

@@ -3,7 +3,7 @@ import { useNavigate } from "react-router-dom";
 import { Play, Settings, Square, Shield, Crosshair, LayoutGrid } from "lucide-react";
 import { formatTradeData } from "./TableView";
 import { LogoutButton } from "../auth";
-import { API_BASE_URL, api, apiSignals } from "../config";
+import { API_BASE_URL, api, apiFetch, apiSignals, apiSignalsFetch } from "../config";
 
 const REFRESH_INTERVAL_KEY = "refresh_app_main_intervalSec";
 
@@ -192,8 +192,7 @@ const SIGNAL_ROWS = [
   { label: "volume_increasing", key: "volume_increasing" },
 ];
 
-// Demo: replace with real auth; for now accept this or any non-empty for testing
-const DEMO_PASSWORD = "demo123";
+// Password is validated by the API (users table); no client-side check
 const ACTION_LABELS = {
   execute: "Execute trade",
   endTrade: "End trade",
@@ -249,11 +248,6 @@ function ConfirmActionModal({
     const p = (password || "").trim();
     if (!p) {
       setError("Enter password");
-      return false;
-    }
-    // Demo: accept DEMO_PASSWORD or any for testing; replace with real auth
-    if (DEMO_PASSWORD && p !== DEMO_PASSWORD) {
-      setError("Invalid password");
       return false;
     }
     setError("");
@@ -2406,7 +2400,7 @@ export default function SingleTradeLiveView({ formattedRow: initialFormattedRow,
     let cancelled = false;
     const poll = async () => {
       try {
-        const res = await fetch(api(`/api/trade?unique_id=${encodeURIComponent(uniqueId)}`));
+        const res = await apiFetch(`/api/trade?unique_id=${encodeURIComponent(uniqueId)}`);
         if (cancelled || !res.ok) return;
         const json = await res.json();
         const trade = json?.trade ?? null;
@@ -2434,7 +2428,7 @@ export default function SingleTradeLiveView({ formattedRow: initialFormattedRow,
     if (!signalSymbol) return;
     const callCalculateSignals = async () => {
       try {
-        const res = await fetch(apiSignals("/api/calculate-signals"), {
+        const res = await apiSignalsFetch("/api/calculate-signals", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({ symbol: signalSymbol, candle: "regular" }),
@@ -2493,7 +2487,7 @@ export default function SingleTradeLiveView({ formattedRow: initialFormattedRow,
     }
     const fetchOpenPosition = async () => {
       try {
-        const res = await fetch(apiSignals(`/api/open-position?symbol=${encodeURIComponent(signalSymbol)}`));
+        const res = await apiSignalsFetch(`/api/open-position?symbol=${encodeURIComponent(signalSymbol)}`);
         const data = await res.json().catch(() => ({}));
         if (data?.ok) setExchangePositionData(data);
         else setExchangePositionData({ ok: false, error: data?.message || "Failed to fetch" });
@@ -2752,7 +2746,7 @@ export default function SingleTradeLiveView({ formattedRow: initialFormattedRow,
     const url = api(endpoint);
     let res;
     try {
-      res = await fetch(url, {
+      res = await apiFetch(url, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(body),
@@ -2817,7 +2811,7 @@ export default function SingleTradeLiveView({ formattedRow: initialFormattedRow,
     const machineid = rawTrade?.machineid;
     const enabled = extraValue === "enable";
     const url = api("/api/autopilot");
-    const res = await fetch(url, {
+    const res = await apiFetch(url, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ unique_id, machineid, password: (password || "").trim(), enabled }),
@@ -2834,7 +2828,7 @@ export default function SingleTradeLiveView({ formattedRow: initialFormattedRow,
       throw new Error(data.message || "Autopilot update failed");
     }
     try {
-      const tradeRes = await fetch(api(`/api/trade?unique_id=${encodeURIComponent(unique_id)}`));
+      const tradeRes = await apiFetch(`/api/trade?unique_id=${encodeURIComponent(unique_id)}`);
       if (tradeRes.ok) {
         const tradeJson = await tradeRes.json();
         const trade = tradeJson?.trade ?? null;

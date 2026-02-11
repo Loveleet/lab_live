@@ -7,7 +7,7 @@ import { DndProvider, useDrag, useDrop } from 'react-dnd';
 import { HTML5Backend } from 'react-dnd-html5-backend';
 import axios from 'axios';
 import * as XLSX from 'xlsx';
-import { api } from '../config';
+import { api, apiFetch } from '../config';
 
 // loveleet work
 function useQuery() {
@@ -422,7 +422,7 @@ const GroupViewPage = () => {
   useEffect(() => {
     const fetchMachines = async () => {
       try {
-        const res = await fetch(api('/api/machines'));
+        const res = await apiFetch('/api/machines');
         const data = await res.json();
         // Transform the data to match expected format
         const transformedMachines = Array.isArray(data.machines) ? data.machines.map(m => ({
@@ -505,7 +505,7 @@ const GroupViewPage = () => {
   }, [liveRadioMode]);
   useEffect(() => {
     // Fetch all trades like the main grid does, then filter by pair
-    fetch(api('/api/trades'))
+    apiFetch('/api/trades')
       .then(res => res.json())
       .then(data => {
         const allTrades = Array.isArray(data.trades) ? data.trades : [];
@@ -575,7 +575,7 @@ const GroupViewPage = () => {
     console.log('🔍 [GroupViewPage] Symbols:', symbols);
     console.log('🔍 [GroupViewPage] Symbols length:', symbols.length);
     
-    fetch(url)
+    apiFetch(url)
       .then(res => {
         console.log('🔍 [GroupViewPage] API response status:', res.status);
         console.log('🔍 [GroupViewPage] API response headers:', res.headers);
@@ -604,7 +604,7 @@ const GroupViewPage = () => {
             ? `${api('/api/SignalProcessingLogs')}?symbol=${encodeURIComponent(symbols.join(','))}&page=1&limit=${logsPerPage}`
             : `${api('/api/SignalProcessingLogs')}?page=1&limit=${logsPerPage}`;
           
-          fetch(fallbackUrl)
+          apiFetch(fallbackUrl)
             .then(res => res.json())
             .then(fallbackData => {
               console.log('🔍 [GroupViewPage] Fallback API response:', fallbackData);
@@ -657,7 +657,7 @@ const GroupViewPage = () => {
     const url = currentSymbols.length > 0
               ? `${api("/api/SignalProcessingLogsWithUniqueId")}?symbols=${encodeURIComponent(currentSymbols.join(','))}&page=${wholeDataPage}&limit=${logsPerPage}&sortKey=${wholeSortKey}&sortDirection=${wholeSortDirection}`
         : `${api('/api/SignalProcessingLogsWithUniqueId')}?page=${wholeDataPage}&limit=${logsPerPage}&sortKey=${wholeSortKey}&sortDirection=${wholeSortDirection}`;
-    fetch(url)
+    apiFetch(url)
       .then(res => res.json())
       .then(data => {
         setWholeData(Array.isArray(data.logs) ? data.logs : []);
@@ -782,7 +782,7 @@ const GroupViewPage = () => {
               ? `${api("/api/SignalProcessingLogsWithUniqueId")}?symbols=${encodeURIComponent(symbols.join(','))}&page=1&limit=${newRowsPerPage}`
         : `${api('/api/SignalProcessingLogsWithUniqueId')}?page=1&limit=${newRowsPerPage}`;
     
-    fetch(url)
+    apiFetch(url)
       .then(res => res.json())
       .then(data => {
         const logsArray = Array.isArray(data.logs) ? data.logs : [];
@@ -810,7 +810,7 @@ const GroupViewPage = () => {
               ? `${api("/api/SignalProcessingLogsWithUniqueId")}?symbols=${encodeURIComponent(symbols.join(','))}&page=${newPage}&limit=${logsPerPage}`
         : `${api('/api/SignalProcessingLogsWithUniqueId')}?page=${newPage}&limit=${logsPerPage}`;
     
-    fetch(url)
+    apiFetch(url)
       .then(res => res.json())
       .then(data => {
         const logsArray = Array.isArray(data.logs) ? data.logs : [];
@@ -1911,6 +1911,7 @@ const GroupViewPage = () => {
     if (!symbolModalOpen && activeSymbols.length && activeSymbols.length !== symbols.length) {
       setUniqueIdLoading(true);
               axios.get(api('/api/SignalProcessingLogsWithUniqueId'), {
+        withCredentials: true,
         params: {
           symbols: activeSymbols.join(','),
           page: uniqueIdPage,
@@ -2016,7 +2017,7 @@ const GroupViewPage = () => {
         : `${api('/api/SignalProcessingLogsWithUniqueId')}?limit=1000000&sortKey=${wholeSortKey}&sortDirection=${wholeSortDirection}`;
       console.log('Export whole - API URL:', url);
       try {
-        const res = await fetch(url);
+        const res = await apiFetch(url);
         const data = await res.json();
         console.log('Export whole - API response:', data);
         const allRows = Array.isArray(data.logs) ? data.logs : [];
@@ -2168,6 +2169,7 @@ const GroupViewPage = () => {
   useEffect(() => {
     if (symbols && symbols.length) {
       axios.get(api('/api/SignalProcessingLogsWithUniqueId'), {
+        withCredentials: true,
         params: {
           symbols: symbols.join(','),
           page: 1,
@@ -2191,6 +2193,7 @@ const GroupViewPage = () => {
     ];
     if (testUIDs.length) {
               axios.get(api('/api/SignalProcessingLogsByUIDs'), {
+        withCredentials: true,
         params: { uids: testUIDs.join(',') },
       })
         .then(res => {
@@ -2208,6 +2211,7 @@ const GroupViewPage = () => {
               const selectedUIDs = tableLogs.map(log => log.unique_id).filter(Boolean);
       if (selectedUIDs.length) {
         axios.get(api('/api/SignalProcessingLogsByUIDs'), {
+          withCredentials: true,
           params: { uids: selectedUIDs.join(',') },
         })
         .then(res => {

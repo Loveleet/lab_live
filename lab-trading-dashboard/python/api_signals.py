@@ -2,11 +2,15 @@
 Flask API to expose CalculateSignals(symbol, interval, candle) from FinalVersionTrading_AWS.
 Run from lab-trading-dashboard/python: python api_signals.py
 Set env PYTHON_SIGNALS_PORT (default 5001). Node server can proxy /api/calculate-signals to this URL.
+Runs 24/7 with auto-restart on error. Sends Telegram alert if process exits.
 """
 import os
+import sys
 import time
 import json
 import threading
+import atexit
+import asyncio
 
 try:
     from flask import Flask, request, jsonify
@@ -14,38 +18,57 @@ except ImportError:
     raise SystemExit("Install Flask: pip install flask")
 
 
-def kill_process_on_port(port):
+SEP = "─" * 60
+
+def _log(msg, level="INFO"):
+    ts = __import__("datetime").datetime.now(__import__("datetime").timezone.utc).strftime("%Y-%m-%d %H:%M:%S UTC")
+    print(f"\n[{ts}] [{level}] {msg}\n{SEP}")
+
+def _send_telegram_sync(message):
+    """Send a Telegram message (sync wrapper)."""
+    try:
+        from telegram_message_sender import send_message_to_users
+        asyncio.run(send_message_to_users(message))
+    except Exception as e:
+        _log(f"Could not send Telegram: {e}", "ERROR")
+
+
+def kill_process_on_port(port, max_retries=3):
     """If the given port is in use, kill the process(es) using it so we can bind. Works on Windows and Ubuntu/Linux (uses psutil)."""
     try:
         import psutil
     except ImportError:
-        print(f"[startup] psutil not installed; if port {port} is in use, start may fail.")
+        _log("psutil not installed; if port is in use, start may fail", "WARN")
         return
     my_pid = os.getpid()
-    killed = []
-    try:
-        for conn in psutil.net_connections():
-            if conn.status != "LISTEN":
-                continue
-            try:
-                if getattr(conn, "laddr", None) is None or conn.laddr.port != port:
+    for attempt in range(max_retries):
+        killed = []
+        try:
+            for conn in psutil.net_connections():
+                if conn.status != "LISTEN":
                     continue
-            except Exception:
-                continue
-            pid = conn.pid
-            if pid is None or pid == my_pid:
-                continue
-            try:
-                p = psutil.Process(pid)
-                p.terminate()
-                killed.append(pid)
-            except (psutil.NoSuchProcess, psutil.AccessDenied, psutil.Error):
-                pass
-        if killed:
-            print(f"[startup] Killed process(es) on port {port}: {killed}")
-            time.sleep(1.5)
-    except Exception as e:
-        print(f"[startup] Could not check/kill port {port}: {e}")
+                try:
+                    if getattr(conn, "laddr", None) is None or conn.laddr.port != port:
+                        continue
+                except Exception:
+                    continue
+                pid = conn.pid
+                if pid is None or pid == my_pid:
+                    continue
+                try:
+                    p = psutil.Process(pid)
+                    p.kill()
+                    killed.append(pid)
+                except (psutil.NoSuchProcess, psutil.AccessDenied, psutil.Error):
+                    pass
+            if killed:
+                _log(f"Killed process(es) on port {port}: {killed}")
+                time.sleep(2)
+            else:
+                break
+        except Exception as e:
+            _log(f"Could not check/kill port {port}: {e}", "ERROR")
+            break
 
 # Import after ensuring we're in the right context (run from python/ directory)
 from FinalVersionTrading_AWS import CalculateSignals_Direct_Api
@@ -58,7 +81,7 @@ try:
     from utils.main_binance import getAllOpenPosition, getOpenPosition
     from utils.Final_olab_database import olab_sync_exchange_trades
 except ImportError as e:
-    print(f"⚠️ Warning: Could not import getAllOpenPosition, getOpenPosition or olab_sync_exchange_trades: {e}")
+    _log(f"Could not import getAllOpenPosition, getOpenPosition or olab_sync_exchange_trades: {e}", "WARN")
     getAllOpenPosition = None
     getOpenPosition = None
     olab_sync_exchange_trades = None
@@ -110,12 +133,11 @@ def calculate_signals():
 
         with _in_flight_lock:
             if symbol in _in_flight:
-                print(f"[calculate-signals] {symbol}: skipped (already in progress)")
+                _log(f"calculate-signals | {symbol}: SKIPPED (already in progress)", "WARN")
                 return jsonify({"ok": False, "message": f"{symbol} already being computed, retry later"}), 429
             _in_flight.add(symbol)
         try:
-            # Run CalculateSignals for 5m, 15m, 1h, 4h and send each result to server
-            print(f"[calculate-signals] {symbol}: computing 5m, 15m, 1h, 4h ...")
+            _log(f"calculate-signals | {symbol}: computing 5m, 15m, 1h, 4h ...")
             intervals = {}
             for interval in SIGNALS_INTERVALS:
                 df = CalculateSignals_Direct_Api(symbol, interval, candle=candle)
@@ -131,7 +153,7 @@ def calculate_signals():
                 except Exception as e:
                     intervals[interval] = {"ok": False, "summary": None, "error": str(e)}
 
-            print(f"[calculate-signals] {symbol}: returning intervals {list(intervals.keys())}")
+            _log(f"calculate-signals | {symbol}: OK | intervals {list(intervals.keys())}")
             return jsonify({
                 "ok": True,
                 "symbol": symbol,
@@ -167,14 +189,12 @@ def sync_open_positions():
         }), 500
     
     try:
-        print("[sync-open-positions] Fetching open positions from Binance (getAllOpenPosition)...")
+        _log("sync-open-positions | Fetching from Binance (getAllOpenPosition)...")
         positions = getAllOpenPosition()
         positions_count = len(positions) if positions else 0
         
-        print(f"[sync-open-positions] DEBUG: getAllOpenPosition returned {positions_count} positions")
-        
         if not positions:
-            print("[sync-open-positions] DEBUG: No data from getAllOpenPosition, nothing to sync")
+            _log("sync-open-positions | No positions from Binance, nothing to sync", "WARN")
             return jsonify({
                 "ok": True,
                 "message": "No open positions found",
@@ -184,16 +204,16 @@ def sync_open_positions():
                 "already_existed_count": 0,
             })
         
-        print(f"[sync-open-positions] Syncing {positions_count} positions to exchange_trade...")
         result = olab_sync_exchange_trades(positions)
-        
         inserted = result["inserted_count"]
         already_existed = result.get("already_existed_count", 0)
-        print(f"[sync-open-positions] DEBUG: data from getAllOpenPosition = {positions_count}")
-        print(f"[sync-open-positions] DEBUG: already existed in exchange_trade (skipped) = {already_existed}")
-        print(f"[sync-open-positions] DEBUG: insert success count = {inserted}")
-        if result.get("errors"):
-            print(f"[sync-open-positions] DEBUG: errors = {result['errors']}")
+        errs = result.get("errors", [])
+        _log(
+            f"sync-open-positions | OK | positions={positions_count} inserted={inserted} "
+            f"already_existed={already_existed}" + (f" errors={len(errs)}" if errs else "")
+        )
+        if errs:
+            _log(f"sync-open-positions | errors: {errs}", "ERROR")
         
         return jsonify({
             "ok": True,
@@ -208,7 +228,7 @@ def sync_open_positions():
         
     except Exception as e:
         error_msg = str(e)
-        print(f"[sync-open-positions] Error: {error_msg}")
+        _log(f"sync-open-positions | Error: {error_msg}", "ERROR")
         import traceback
         traceback.print_exc()
         return jsonify({
@@ -237,7 +257,7 @@ def open_position():
         return jsonify({"ok": True, "symbol": symbol, "positions": positions or []})
     except Exception as e:
         error_msg = str(e)
-        print(f"[open-position] Error: {error_msg}")
+        _log(f"open-position | Error: {error_msg}", "ERROR")
         import traceback
         traceback.print_exc()
         return jsonify({"ok": False, "message": error_msg}), 500
@@ -245,7 +265,28 @@ def open_position():
 
 if __name__ == "__main__":
     port = int(os.environ.get("PYTHON_SIGNALS_PORT", "5001"))
-    kill_process_on_port(port)
-    print(f"Starting signals API on port {port}. POST /api/calculate-signals with {{ symbol, candle? }}")
-    print(f"Returns intervals: {list(SIGNALS_INTERVALS)} (5m, 15m, 1h, 4h)")
-    app.run(host="0.0.0.0", port=port, threaded=True)
+    _exit_reason = [None]
+
+    def _on_exit():
+        reason = _exit_reason[0] or "unknown"
+        msg = f"⚠️ api_signals.py EXITED\nPort: {port}\nReason: {reason}"
+        _log(f"api_signals EXITING: {reason}")
+        _send_telegram_sync(msg)
+
+    atexit.register(_on_exit)
+
+    while True:
+        try:
+            kill_process_on_port(port)
+            _log(f"api_signals STARTED | port={port} | POST /api/calculate-signals | intervals {list(SIGNALS_INTERVALS)}")
+            app.run(host="0.0.0.0", port=port, threaded=True)
+        except KeyboardInterrupt:
+            _exit_reason[0] = "KeyboardInterrupt (Ctrl+C)"
+            sys.exit(0)
+        except Exception as e:
+            err_msg = str(e)
+            _exit_reason[0] = err_msg
+            _log(f"api_signals CRASHED: {err_msg}", "ERROR")
+            _send_telegram_sync(f"⚠️ api_signals.py CRASHED\nPort: {port}\nError: {err_msg}\nRestarting in 10s...")
+            time.sleep(10)
+            _exit_reason[0] = None

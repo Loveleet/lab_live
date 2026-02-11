@@ -16,14 +16,14 @@ import ListViewPage from './components/ListViewPage';
 import LiveTradeViewPage from './components/LiveTradeViewPage';
 import LiveRunningTradesPage from './components/LiveRunningTradesPage';
 import LoginPage from './components/LoginPage';
-import { isAuthenticated, setAuthenticated, setSession, clearSession, isSessionExpired, isSessionWarningTime, AuthContext, LogoutButton } from './auth';
+import { checkSession, logoutApi, AuthContext, LogoutButton } from './auth';
 
 import GroupViewPage from './pages/GroupViewPage';
 import RefreshControls from './components/RefreshControls';
 import SuperTrendPanel from "./SuperTrendPanel";
 import TradeComparePage from "./components/TradeComparePage";
 import SoundSettings from "./components/SoundSettings";
-import { API_BASE_URL, getApiBaseUrl, api, loadRuntimeApiConfig } from "./config";
+import { API_BASE_URL, getApiBaseUrl, api, apiFetch, loadRuntimeApiConfig } from "./config";
 
 // Animated SVG background for LAB title
 function AnimatedGraphBackground({ width = 400, height = 80, opacity = 0.4 }) {
@@ -116,7 +116,8 @@ const parseBoolean = (value) => {
 const SESSION_CHECK_INTERVAL_MS = 30 * 1000; // check every 30 seconds
 
 const App = () => {
-  const [isLoggedIn, setLoggedIn] = useState(() => isAuthenticated());
+  const [isLoggedIn, setLoggedIn] = useState(false);
+  const [authChecking, setAuthChecking] = useState(true);
   const [showSessionWarning, setShowSessionWarning] = useState(false);
 
   const [superTrendData, setSuperTrendData] = useState([]);
@@ -179,19 +180,27 @@ const App = () => {
     localStorage.setItem("fontSizeLevel", fontSizeLevel);
   }, [fontSizeLevel]);
 
-  // Session: 1 hour live; 10 mins before expiry show "stay logged in" popup; if not extended, logout
+  // Check session on mount
+  useEffect(() => {
+    checkSession().then((data) => {
+      setLoggedIn(!!data);
+      setAuthChecking(false);
+    }).catch(() => {
+      setLoggedIn(false);
+      setAuthChecking(false);
+    });
+  }, []);
+
+  // Periodically verify session is still valid
   useEffect(() => {
     if (!isLoggedIn) return;
     const id = setInterval(() => {
-      if (isSessionExpired()) {
-        clearSession();
-        setLoggedIn(false);
-        setShowSessionWarning(false);
-        return;
-      }
-      if (isSessionWarningTime()) {
-        setShowSessionWarning(true);
-      }
+      checkSession().then((data) => {
+        if (!data) {
+          setLoggedIn(false);
+          setShowSessionWarning(false);
+        }
+      });
     }, SESSION_CHECK_INTERVAL_MS);
     return () => clearInterval(id);
   }, [isLoggedIn]);
@@ -375,13 +384,18 @@ const [selectedIntervals, setSelectedIntervals] = useState(() => {
     }
     try {
       setApiUnreachable(false);
-      const tradeRes = await fetch(api("/api/trades"));
+      // Sync Binance open positions to DB before fetching trades (so fresh data shows on load/refresh)
+      try {
+        await apiFetch("/api/sync-open-positions").catch(() => {});
+      } catch (_) {}
+      const tradeRes = await apiFetch("/api/trades");
+      if (tradeRes.status === 401) { setLoggedIn(false); return; }
       const tradeJson = tradeRes.ok ? await tradeRes.json() : { trades: [] };
       const trades = Array.isArray(tradeJson.trades) ? tradeJson.trades : [];
       console.log("[DEBUG] Trades received:", trades.length, "rows");
       setDemoDataHint(tradeJson._meta?.demoData ? tradeJson._meta.hint || null : null);
 
-      const machinesRes = await fetch(api("/api/machines"));
+      const machinesRes = await apiFetch("/api/machines");
       const machinesJson = machinesRes.ok ? await machinesRes.json() : { machines: [] };
       const machinesList = Array.isArray(machinesJson.machines) ? machinesJson.machines : [];
       console.log("[DEBUG] Machines received:", machinesList.length, "machines");
@@ -394,20 +408,20 @@ const [selectedIntervals, setSelectedIntervals] = useState(() => {
 
       // Fetch SuperTrend data
       console.log("[API DEBUG] fetch /api/supertrend");
-      const superTrendRes = await fetch(api("/api/supertrend"));
+      const superTrendRes = await apiFetch("/api/supertrend");
       const superTrendJson = superTrendRes.ok ? await superTrendRes.json() : { supertrend: [] };
       setSuperTrendData(Array.isArray(superTrendJson.supertrend) ? superTrendJson.supertrend : []);
 
       // Fetch EMA trend data
       console.log("[API DEBUG] fetch /api/pairstatus");
-      const emaRes = await fetch(api("/api/pairstatus"));
+      const emaRes = await apiFetch("/api/pairstatus");
       const emaJson = emaRes.ok ? await emaRes.json() : null;
       setEmaTrends(emaJson);
 
       // Fetch BUY/SELL live flags
       try {
         console.log("[API DEBUG] fetch /api/active-loss");
-        const flagsRes = await fetch(api("/api/active-loss"));
+        const flagsRes = await apiFetch("/api/active-loss");
         const flagsJson = flagsRes.ok ? await flagsRes.json() : null;
         setActiveLossFlags(flagsJson || null);
       } catch {
@@ -1369,7 +1383,7 @@ useEffect(() => {
   useEffect(() => {
     const fetchTrades = async () => {
       if (typeof window !== "undefined" && window.location?.hostname?.includes("github.io") && !getApiBaseUrl()) return;
-      const res = await fetch(api("/api/trades"));
+      const res = await apiFetch("/api/trades");
       const data = await res.json();
       
       setTrades(data.trades || []);
@@ -1377,13 +1391,20 @@ useEffect(() => {
     fetchTrades();
   }, []);
 
+  if (authChecking) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-[#0f0f0f]">
+        <div className="text-gray-400">Checking session…</div>
+      </div>
+    );
+  }
   if (!isLoggedIn) {
     return <LoginPage onLogin={() => setLoggedIn(true)} />;
   }
 
   const authContextValue = {
-    logout: () => {
-      setAuthenticated(false);
+    logout: async () => {
+      await logoutApi();
       setLoggedIn(false);
       setShowSessionWarning(false);
     },
@@ -1394,26 +1415,15 @@ useEffect(() => {
       {showSessionWarning && (
         <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/60" role="dialog" aria-modal="true" aria-labelledby="session-warning-title">
           <div className="bg-white dark:bg-[#222] rounded-xl p-6 max-w-sm w-full shadow-xl border border-gray-200 dark:border-gray-700 mx-4">
-            <h2 id="session-warning-title" className="text-lg font-semibold text-gray-900 dark:text-white mb-2">Session expiring</h2>
-            <p className="text-gray-600 dark:text-gray-300 text-sm mb-4">
-              Your session will expire in 10 minutes. Stay logged in?
-            </p>
-            <div className="flex gap-2 justify-end">
-              <button
-                type="button"
-                onClick={() => { setAuthenticated(false); setLoggedIn(false); setShowSessionWarning(false); }}
-                className="px-3 py-1.5 rounded-lg bg-gray-200 dark:bg-gray-700 text-gray-800 dark:text-gray-200 font-medium"
-              >
-                Log out
-              </button>
-              <button
-                type="button"
-                onClick={() => { setSession(); setShowSessionWarning(false); }}
-                className="px-4 py-1.5 rounded-lg bg-teal-600 hover:bg-teal-700 text-white font-semibold"
-              >
-                Stay logged in
-              </button>
-            </div>
+            <h2 id="session-warning-title" className="text-lg font-semibold text-gray-900 dark:text-white mb-2">Session expired</h2>
+            <p className="text-gray-600 dark:text-gray-300 text-sm mb-4">Please sign in again.</p>
+            <button
+              type="button"
+              onClick={() => { setLoggedIn(false); setShowSessionWarning(false); }}
+              className="w-full py-2 rounded-lg bg-teal-600 hover:bg-teal-700 text-white font-semibold"
+            >
+              OK
+            </button>
           </div>
         </div>
       )}

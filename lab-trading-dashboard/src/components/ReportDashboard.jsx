@@ -4,7 +4,7 @@ import PairStatsGrid from './PairStatsGrid';
 import PairStatsFilters from './PairStatsFilters';
 import Sidebar from './Sidebar';
 import RefreshControls from './RefreshControls';
-import { api } from '../config';
+import { api, apiFetch } from '../config';
 
 // Helper functions for consistent data parsing
 const parseHedge = (hedgeValue) => {
@@ -145,7 +145,7 @@ const ReportDashboard = () => {
   useEffect(() => {
     const fetchMachines = async () => {
       try {
-        const res = await fetch(api('/api/machines'));
+        const res = await apiFetch('/api/machines');
         const data = await res.json();
         setMachines(Array.isArray(data.machines) ? data.machines : []);
       } catch (e) {
@@ -193,7 +193,7 @@ const ReportDashboard = () => {
 
   // Fetch trades data
   useEffect(() => {
-    fetch(api('/api/trades'))
+    apiFetch('/api/trades')
       .then(res => res.json())
       .then(data => {
         const allTrades = Array.isArray(data.trades) ? data.trades : [];
@@ -212,8 +212,8 @@ const ReportDashboard = () => {
   const refreshReportData = async () => {
     try {
       const [machinesRes, tradesRes] = await Promise.all([
-                  fetch(api('/api/machines')),
-        fetch(api('/api/trades')),
+                  apiFetch('/api/machines'),
+        apiFetch('/api/trades'),
       ]);
       const machinesJson = machinesRes.ok ? await machinesRes.json() : { machines: [] };
       const tradesJson = tradesRes.ok ? await tradesRes.json() : { trades: [] };

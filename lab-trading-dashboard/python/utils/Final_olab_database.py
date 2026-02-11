@@ -3484,6 +3484,19 @@ def _olab_build_m1_alltraderecords_document(unique_id, operator_trade_time, pair
     return document
 
 
+def _log_hedge_debug(msg):
+    """Write sync debug to log_event/sync_hedge_debug.log (temporary, remove later)."""
+    try:
+        log_dir = os.path.join(os.path.dirname(__file__), '..', 'log_event')
+        os.makedirs(log_dir, exist_ok=True)
+        log_file = os.path.join(log_dir, 'sync_hedge_debug.log')
+        ts = datetime.now(timezone.utc).strftime('%Y-%m-%d %H:%M:%S UTC')
+        with open(log_file, 'a', encoding='utf-8') as f:
+            f.write(f"[{ts}] {msg}\n")
+    except Exception:
+        pass
+
+
 def olab_sync_exchange_trades(positions):
     """
     Sync open positions from Binance to exchange_trade, m1, and alltraderecords.
@@ -3493,14 +3506,14 @@ def olab_sync_exchange_trades(positions):
     Returns: dict with inserted_count, updated_count, already_existed_count, errors
     """
     if not positions or not isinstance(positions, list):
-        print("[olab_sync_exchange_trades] DEBUG: no positions or not a list, returning 0")
+        _log_hedge_debug("STEP 0: SKIP - no positions or not a list, returning 0")
         return {"inserted_count": 0, "updated_count": 0, "already_existed_count": 0, "errors": []}
     
     inserted_count = 0
     already_existed_count = 0
     errors = []
     
-    print(f"[olab_sync_exchange_trades] DEBUG: received {len(positions)} positions from getAllOpenPosition")
+    _log_hedge_debug(f"STEP 1: received {len(positions)} positions from getAllOpenPosition")
     
     try:
         # Group positions by symbol to detect hedge trades
@@ -3511,11 +3524,13 @@ def olab_sync_exchange_trades(positions):
                 if symbol not in positions_by_symbol:
                     positions_by_symbol[symbol] = []
                 positions_by_symbol[symbol].append(pos)
+        for sym, plist in positions_by_symbol.items():
+            _log_hedge_debug(f"STEP 2a: symbol={sym} position_count={len(plist)} sides={[p.get('positionSide') for p in plist]}")
         
         # Check which positions already exist
         symbols_list = list(positions_by_symbol.keys())
         if not symbols_list:
-            print("[olab_sync_exchange_trades] DEBUG: no valid symbols, returning")
+            _log_hedge_debug("STEP 2b: SKIP - no valid symbols, returning")
             return {"inserted_count": 0, "updated_count": 0, "already_existed_count": 0, "errors": ["No valid symbols found"]}
         
         # Query existing running trades for these symbols
@@ -3527,13 +3542,13 @@ def olab_sync_exchange_trades(positions):
         existing_df = sql_helper.fetch_dataframe(check_query)
         existing_pairs = set(existing_df['pair'].str.upper().tolist() if not existing_df.empty else [])
         existing_unique_ids = set(existing_df['unique_id'].tolist() if not existing_df.empty else [])
-        print(f"[olab_sync_exchange_trades] DEBUG: exchange_trade already has {len(existing_unique_ids)} running rows for these symbols")
+        _log_hedge_debug(f"STEP 3: exchange_trade has {len(existing_unique_ids)} existing running rows, pairs={list(existing_pairs)}")
         
         # Process each position
         for symbol, symbol_positions in positions_by_symbol.items():
             is_hedge = len(symbol_positions) >= 2  # 2+ positions of same symbol = hedge
-            if is_hedge:
-                print(f"[olab_sync_exchange_trades] DEBUG: hedge trade detected for {symbol}")
+            hedge_val = 1 if is_hedge else 0
+            _log_hedge_debug(f"STEP 4: symbol={symbol} len(symbol_positions)={len(symbol_positions)} is_hedge={is_hedge} hedge={hedge_val}")
             
             for pos in symbol_positions:
                 try:
@@ -3563,17 +3578,17 @@ def olab_sync_exchange_trades(positions):
                     # Skip if already exists
                     if unique_id in existing_unique_ids:
                         already_existed_count += 1
-                        print(f"[olab_sync_exchange_trades] DEBUG: data EXISTS, skipped (unique_id={unique_id[:40]}...)")
+                        _log_hedge_debug(f"STEP 5a: SKIP unique_id exists - {symbol} {side_str} unique_id={unique_id[:50]}...")
                         continue
                     
                     # Skip if pair already exists as running (unless it's a different unique_id)
                     if symbol.upper() in existing_pairs:
                         # Check if this specific unique_id exists
                         if unique_id not in existing_unique_ids:
-                            # Same pair but different unique_id - might be an update, but we insert as new
-                            pass
+                            _log_hedge_debug(f"STEP 5b: pair {symbol} exists but unique_id different - PROCEED to insert")
                         else:
                             already_existed_count += 1
+                            _log_hedge_debug(f"STEP 5b: SKIP pair exists + unique_id exists - {symbol} {side_str}")
                             continue
                     
                     # Prepare insert values
@@ -3596,6 +3611,7 @@ def olab_sync_exchange_trades(positions):
                         "positionSide": position_side,
                         "hedge": 1 if is_hedge else 0,
                     }
+                    _log_hedge_debug(f"STEP 6: ATTEMPT INSERT {symbol} {side_str} unique_id={unique_id[:50]}... hedge={exchange_params['hedge']}")
                     exchange_insert = """
                         INSERT INTO exchange_trade (
                             unique_id, operator_trade_time, operator_close_time, type, pair,
@@ -3642,17 +3658,15 @@ def olab_sync_exchange_trades(positions):
                         raise Exception("Transaction failed (exchange_trade + m1 + alltraderecords)")
                     
                     inserted_count += 1
-                    print(f"[olab_sync_exchange_trades] DEBUG: insert SUCCESS: {unique_id} ({symbol} {side_str}) [exchange_trade + m1 + alltraderecords]")
-                    print(f"✅ Inserted exchange_trade + m1 + alltraderecords: {unique_id} ({symbol} {side_str})")
+                    _log_hedge_debug(f"STEP 7: INSERT SUCCESS - {symbol} {side_str} unique_id={unique_id[:50]}...")
                     
                 except Exception as e:
                     error_msg = f"Error inserting position {symbol} {position_side}: {str(e)}"
                     errors.append(error_msg)
-                    print(f"[olab_sync_exchange_trades] DEBUG: insert FAILED: {error_msg}")
-                    print(f"❌ {error_msg}")
+                    _log_hedge_debug(f"STEP 7: INSERT FAILED - {symbol} {position_side}: {error_msg}")
                     olab_log_db_error(e, "olab_sync_exchange_trades", f"symbol={symbol}")
         
-        print(f"[olab_sync_exchange_trades] DEBUG: total from getAllOpenPosition={len(positions)}, already_existed={already_existed_count}, insert_success={inserted_count}, errors={len(errors)}")
+        _log_hedge_debug(f"STEP 8: DONE - positions={len(positions)} already_existed={already_existed_count} inserted={inserted_count} errors={len(errors)}")
         return {
             "inserted_count": inserted_count,
             "updated_count": 0,
@@ -3664,8 +3678,7 @@ def olab_sync_exchange_trades(positions):
     except Exception as e:
         error_msg = f"Error in olab_sync_exchange_trades: {str(e)}"
         errors.append(error_msg)
-        print(f"[olab_sync_exchange_trades] DEBUG: FATAL error: {error_msg}")
-        print(f"❌ {error_msg}")
+        _log_hedge_debug(f"STEP FATAL: {error_msg}")
         olab_log_db_error(e, "olab_sync_exchange_trades", "main")
         return {"inserted_count": inserted_count, "updated_count": 0, "already_existed_count": already_existed_count, "errors": errors}
 

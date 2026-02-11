@@ -2,7 +2,7 @@ import React, { useEffect, useMemo, useState, useCallback } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import moment from "moment";
 import Sidebar from "./Sidebar";
-import { API_BASE_URL } from "../config";
+import { apiFetch } from "../config";
 
 const toKey = (trade) => {
   const symbol = (trade?.pair || trade?.symbol || trade?.PAIR || "").toString().trim().toUpperCase();
@@ -223,8 +223,8 @@ const TradeComparePage = () => {
     setError("");
     try {
       const [tradesRes, machinesRes] = await Promise.all([
-        fetch(`${API_BASE_URL}/api/trades`),
-        fetch(`${API_BASE_URL}/api/machines`)
+        apiFetch("/api/trades"),
+        apiFetch("/api/machines")
       ]);
       const tradesJson = tradesRes.ok ? await tradesRes.json() : { trades: [] };
       const machinesJson = machinesRes.ok ? await machinesRes.json() : { machines: [] };
@@ -297,7 +297,7 @@ const TradeComparePage = () => {
       if (rowDetails[row.key]?.loaded) return; // already loaded
       setRowLoading((prev) => ({ ...prev, [row.key]: true }));
       try {
-        const res = await fetch(`${API_BASE_URL}/api/bot-event-logs?uid=${encodeURIComponent(uid)}&limit=500`);
+        const res = await apiFetch(`/api/bot-event-logs?uid=${encodeURIComponent(uid)}&limit=500`);
         if (!res.ok) throw new Error(`HTTP ${res.status}`);
         const data = await res.json();
         const logs = Array.isArray(data.logs) ? data.logs : [];

@@ -201,6 +201,12 @@ export function api(path) {
   return fullUrl;
 }
 
+/** Fetch with credentials so session cookie is sent. Use for all API calls that require auth. */
+export function apiFetch(pathOrUrl, opts = {}) {
+  const url = typeof pathOrUrl === "string" && pathOrUrl.startsWith("http") ? pathOrUrl : api(pathOrUrl);
+  return fetch(url, { ...opts, credentials: "include" });
+}
+
 /** Base URL for the signals API (api_signals.py). On localhost we call local Python (5001); otherwise same as main API. */
 function getSignalsApiBaseUrl() {
   if (typeof window !== "undefined" && (window.location?.hostname === "localhost" || window.location?.hostname === "127.0.0.1")) {
@@ -214,4 +220,10 @@ function getSignalsApiBaseUrl() {
 export function apiSignals(path) {
   const base = getSignalsApiBaseUrl();
   return base ? `${base.replace(/\/$/, "")}${path.startsWith("/") ? path : `/${path}`}` : path;
+}
+
+/** Fetch signals API. Uses omit credentials so Python CORS (*) works; Python has no auth. */
+export function apiSignalsFetch(pathOrUrl, opts = {}) {
+  const url = typeof pathOrUrl === "string" && pathOrUrl.startsWith("http") ? pathOrUrl : apiSignals(pathOrUrl);
+  return fetch(url, { ...opts, credentials: "omit" });
 }

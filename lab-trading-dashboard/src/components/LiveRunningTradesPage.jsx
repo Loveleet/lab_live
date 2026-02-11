@@ -2,7 +2,7 @@ import React, { useState, useEffect, useCallback } from "react";
 import { useLocation, useNavigate } from "react-router-dom";
 import { formatTradeData } from "./TableView";
 import { LogoutButton } from "../auth";
-import { API_BASE_URL } from "../config";
+import { apiFetch } from "../config";
 
 const DEMO_PASSWORD = "demo123";
 
@@ -45,7 +45,7 @@ export default function LiveRunningTradesPage() {
     let cancelled = false;
     (async () => {
       try {
-        const res = await fetch(`${API_BASE_URL}/api/trades`);
+        const res = await apiFetch("/api/trades");
         if (cancelled || !res.ok) return;
         const data = await res.json();
         if (cancelled || !Array.isArray(data)) return;

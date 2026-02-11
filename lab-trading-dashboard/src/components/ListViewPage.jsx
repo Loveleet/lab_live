@@ -6,7 +6,7 @@ import PairStatsFilters from './PairStatsFilters';
 import { DndProvider, useDrag, useDrop } from 'react-dnd';
 import { HTML5Backend } from 'react-dnd-html5-backend';
 import * as XLSX from 'xlsx'; // Add at the top if xlsx is available
-import { api } from '../config';
+import { api, apiFetch } from '../config';
 
 // loveleet work
 function useQuery() {
@@ -422,7 +422,7 @@ const ListViewPage = () => {
   useEffect(() => {
     const fetchMachines = async () => {
       try {
-        const res = await fetch(api('/api/machines'));
+        const res = await apiFetch('/api/machines');
         const data = await res.json();
         setMachines(Array.isArray(data.machines) ? data.machines : []);
       } catch (e) {
@@ -472,7 +472,7 @@ const ListViewPage = () => {
   const [trades, setTrades] = useState([]);
   useEffect(() => {
     // Fetch all trades like the main grid does, then filter by pair
-    fetch(api('/api/trades'))
+    apiFetch('/api/trades')
       .then(res => res.json())
       .then(data => {
         const allTrades = Array.isArray(data.trades) ? data.trades : [];
@@ -505,7 +505,7 @@ const ListViewPage = () => {
       ? `${api('/api/SignalProcessingLogs')}?symbol=${encodeURIComponent(pair)}&page=1&limit=${logsPerPage}`
       : `${api('/api/SignalProcessingLogs')}?page=1&limit=${logsPerPage}`;
     
-    fetch(url)
+    apiFetch(url)
       .then(res => res.json())
       .then(data => {
         const logsArray = Array.isArray(data.logs) ? data.logs : [];
@@ -629,7 +629,7 @@ const ListViewPage = () => {
       ? `${api('/api/SignalProcessingLogs')}?symbol=${encodeURIComponent(pair)}&page=1&limit=${newRowsPerPage}`
       : `${api('/api/SignalProcessingLogs')}?page=1&limit=${newRowsPerPage}`;
     
-    fetch(url)
+    apiFetch(url)
       .then(res => res.json())
       .then(data => {
         const logsArray = Array.isArray(data.logs) ? data.logs : [];
@@ -657,7 +657,7 @@ const ListViewPage = () => {
       ? `${api('/api/SignalProcessingLogs')}?symbol=${encodeURIComponent(pair)}&page=${newPage}&limit=${logsPerPage}`
       : `${api('/api/SignalProcessingLogs')}?page=${newPage}&limit=${logsPerPage}`;
     
-    fetch(url)
+    apiFetch(url)
       .then(res => res.json())
       .then(data => {
         const logsArray = Array.isArray(data.logs) ? data.logs : [];
@@ -1688,7 +1688,7 @@ const ListViewPage = () => {
     const url = pair
       ? `${api('/api/SignalProcessingLogs')}?symbol=${encodeURIComponent(pair)}&page=${wholeDataPage}&limit=${logsPerPage}&sortKey=${wholeSortKey}&sortDirection=${wholeSortDirection}`
       : `${api('/api/SignalProcessingLogs')}?page=${wholeDataPage}&limit=${logsPerPage}&sortKey=${wholeSortKey}&sortDirection=${wholeSortDirection}`;
-    fetch(url)
+    apiFetch(url)
       .then(res => res.json())
       .then(data => {
         setWholeData(Array.isArray(data.logs) ? data.logs : []);
@@ -1879,7 +1879,7 @@ const ListViewPage = () => {
         ? `${api('/api/SignalProcessingLogs')}?symbol=${encodeURIComponent(pair)}&limit=all&sortKey=${wholeSortKey}&sortDirection=${wholeSortDirection}`
         : `${api('/api/SignalProcessingLogs')}?limit=all&sortKey=${wholeSortKey}&sortDirection=${wholeSortDirection}`;
       try {
-        const res = await fetch(url);
+        const res = await apiFetch(url);
         const data = await res.json();
         const allRows = Array.isArray(data.logs) ? data.logs : [];
         const exportRows = getExportRows(allRows);
