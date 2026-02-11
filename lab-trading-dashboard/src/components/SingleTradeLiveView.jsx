@@ -2732,6 +2732,8 @@ export default function SingleTradeLiveView({ formattedRow: initialFormattedRow,
     } catch {}
     return null;
   });
+  const serverSettingsAppliedRef = useRef(false);
+  const [serverUiSettings, setServerUiSettings] = useState(null);
   const orderedKeys = fieldOrder && fieldOrder.length
     ? [...fieldOrder.filter((k) => allKeys.includes(k)), ...allKeys.filter((k) => !fieldOrder.includes(k))]
     : allKeys;
@@ -2785,12 +2787,69 @@ export default function SingleTradeLiveView({ formattedRow: initialFormattedRow,
     } catch {}
     return "intervalWise";
   });
+
+  // Persist a single UI setting to cloud and localStorage (used below and in layout useEffects)
+  const saveUiSetting = useCallback((key, value) => {
+    try {
+      localStorage.setItem(key, typeof value === "string" ? value : JSON.stringify(value));
+    } catch {}
+    fetch(api("/api/ui-settings"), {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ key, value }),
+    }).catch(() => {});
+  }, []);
+
   useEffect(() => {
     localStorage.setItem(INFO_SPLIT_KEY, String(infoSplitPercent));
-  }, [infoSplitPercent]);
+    saveUiSetting(INFO_SPLIT_KEY, infoSplitPercent);
+  }, [infoSplitPercent, saveUiSetting]);
   useEffect(() => {
     localStorage.setItem(SIGNALS_VIEW_MODE_KEY, signalsTableViewMode);
-  }, [signalsTableViewMode]);
+    saveUiSetting(SIGNALS_VIEW_MODE_KEY, signalsTableViewMode);
+  }, [signalsTableViewMode, saveUiSetting]);
+
+  // Load UI settings from cloud so layout persists when using GitHub Pages / different browser
+  useEffect(() => {
+    let cancelled = false;
+    fetch(api("/api/ui-settings"))
+      .then((res) => res.json())
+      .then((data) => {
+        if (cancelled) return;
+        const list = Array.isArray(data?.settings) ? data.settings : [];
+        const map = {};
+        list.forEach((s) => {
+          if (s && s.key != null) map[s.key] = s.value;
+        });
+        setServerUiSettings(map);
+      })
+      .catch(() => setServerUiSettings({}));
+    return () => { cancelled = true; };
+  }, []);
+
+  // Apply server settings once when loaded (overrides localStorage for remote consistency)
+  useEffect(() => {
+    if (serverUiSettings == null || serverSettingsAppliedRef.current) return;
+    serverSettingsAppliedRef.current = true;
+    if (Array.isArray(serverUiSettings[INFO_FIELD_ORDER_KEY]) && serverUiSettings[INFO_FIELD_ORDER_KEY].length) {
+      setFieldOrder(serverUiSettings[INFO_FIELD_ORDER_KEY]);
+    }
+    if (Array.isArray(serverUiSettings[INFO_FIELDS_KEY])) {
+      setVisibleKeys(new Set(serverUiSettings[INFO_FIELDS_KEY]));
+    }
+    const sectionArr = serverUiSettings[SECTION_ORDER_KEY];
+    if (Array.isArray(sectionArr) && sectionArr.length === SECTION_IDS.length && SECTION_IDS.every((id) => sectionArr.includes(id))) {
+      setSectionOrder(sectionArr);
+    }
+    if (typeof serverUiSettings[INFO_SPLIT_KEY] === "number" || (typeof serverUiSettings[INFO_SPLIT_KEY] === "string" && serverUiSettings[INFO_SPLIT_KEY] !== "")) {
+      const n = parseInt(serverUiSettings[INFO_SPLIT_KEY], 10);
+      if (!Number.isNaN(n)) setInfoSplitPercent(Math.max(20, Math.min(80, n)));
+    }
+    if (serverUiSettings[SIGNALS_VIEW_MODE_KEY] === "rowWise" || serverUiSettings[SIGNALS_VIEW_MODE_KEY] === "intervalWise") {
+      setSignalsTableViewMode(serverUiSettings[SIGNALS_VIEW_MODE_KEY]);
+    }
+  }, [serverUiSettings]);
+
   // backSplitPercent is no longer used (Binance Data is a single panel now), so we stop updating it.
 
   const [zoomInfoLeft, zoomOutInfoLeft, zoomInInfoLeft] = useZoomLevel(ZOOM_KEYS.infoLeft);
@@ -2847,20 +2906,23 @@ export default function SingleTradeLiveView({ formattedRow: initialFormattedRow,
       try {
         localStorage.setItem(INFO_FIELD_ORDER_KEY, JSON.stringify(fieldOrder));
       } catch {}
+      saveUiSetting(INFO_FIELD_ORDER_KEY, fieldOrder);
     }
-  }, [fieldOrder]);
+  }, [fieldOrder, saveUiSetting]);
   useEffect(() => {
     if (visibleKeys && visibleKeys.size > 0) {
       try {
         localStorage.setItem(INFO_FIELDS_KEY, JSON.stringify([...visibleKeys]));
       } catch {}
+      saveUiSetting(INFO_FIELDS_KEY, [...visibleKeys]);
     }
-  }, [visibleKeys]);
+  }, [visibleKeys, saveUiSetting]);
   useEffect(() => {
     try {
       localStorage.setItem(SECTION_ORDER_KEY, JSON.stringify(sectionOrder));
     } catch {}
-  }, [sectionOrder]);
+    saveUiSetting(SECTION_ORDER_KEY, sectionOrder);
+  }, [sectionOrder, saveUiSetting]);
   useEffect(() => {
     try {
       localStorage.setItem(SIGNAL_ALERT_RULES_KEY, JSON.stringify(alertRules));
