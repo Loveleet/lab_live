@@ -81,6 +81,7 @@ const SIGNALS_VIEW_MODE_KEY = "singleTradeLiveView_signalsViewMode";
 const SIGNAL_ALERT_RULES_KEY = "singleTradeLiveView_signalAlertRules";
 const ALERT_RULE_GROUPS_KEY = "singleTradeLiveView_alertRuleGroups";
 const MASTER_BLINK_COLOR_KEY = "singleTradeLiveView_masterBlinkColor";
+const ACTIVE_RULE_BOOK_ID_KEY = "singleTradeLiveView_activeRuleBookId";
 const SECTION_IDS = ["information", "binanceData", "chart"];
 const SECTION_LABELS = { information: "Information", binanceData: "Binance Data", chart: "Chart" };
 
@@ -861,6 +862,19 @@ function LiveTradeChartSection({
   const [bulkGroupName, setBulkGroupName] = useState("");
   const [bulkGroupColor, setBulkGroupColor] = useState("");
   const [editingGroupId, setEditingGroupId] = useState(null);
+  const [serverRuleBooks, setServerRuleBooks] = useState([]);
+  const [selectedRuleBookId, setSelectedRuleBookId] = useState(() => {
+    try {
+      const raw = localStorage.getItem(ACTIVE_RULE_BOOK_ID_KEY);
+      if (!raw) return null;
+      const parsed = parseInt(raw, 10);
+      return Number.isFinite(parsed) ? parsed : null;
+    } catch {
+      return null;
+    }
+  });
+  const [ruleBooksLoading, setRuleBooksLoading] = useState(false);
+  const [ruleBooksError, setRuleBooksError] = useState("");
   const sortedAlertRules = useMemo(() => {
     const sorted = [...(alertRules || [])];
     sorted.sort((a, b) => {
@@ -881,6 +895,137 @@ function LiveTradeChartSection({
     } catch {}
   }, [intervalOrder]);
 
+  // --- Server-side rule books (load list when settings modal is opened) ---
+  useEffect(() => {
+    if (!showAlertSettings) return;
+    if (serverRuleBooks && serverRuleBooks.length > 0) return;
+    let cancelled = false;
+    const loadRuleBooks = async () => {
+      setRuleBooksLoading(true);
+      setRuleBooksError("");
+      try {
+        const res = await fetch(api("/api/alert-rule-books"));
+        const data = await res.json().catch(() => ({}));
+        if (!res.ok) {
+          throw new Error(data.error || res.statusText || "Failed to load rule books");
+        }
+        if (!cancelled) {
+          const list = Array.isArray(data.ruleBooks) ? data.ruleBooks : [];
+          setServerRuleBooks(list);
+        }
+      } catch (e) {
+        console.error("[RuleBooks] Load failed:", e);
+        if (!cancelled) setRuleBooksError(e?.message || "Failed to load rule books");
+      } finally {
+        if (!cancelled) setRuleBooksLoading(false);
+      }
+    };
+    loadRuleBooks();
+    return () => {
+      cancelled = true;
+    };
+  }, [showAlertSettings, serverRuleBooks]);
+
+  const handleLoadRuleBook = useCallback(
+    async (id) => {
+      if (!id) return;
+      try {
+        const res = await fetch(api(`/api/alert-rule-books/${id}`));
+        const data = await res.json().catch(() => ({}));
+        if (!res.ok) {
+          throw new Error(data.error || res.statusText || "Failed to load rule book");
+        }
+        const payload = data.payload || {};
+        const rules = Array.isArray(payload.rules) ? payload.rules : [];
+        const groups = Array.isArray(payload.groups) ? payload.groups : [];
+        const masterColor = payload.masterBlinkColor || masterBlinkColor || "#f97316";
+        setAlertRules(rules);
+        setAlertRuleGroups(groups);
+        setMasterBlinkColor(masterColor);
+        setSelectedRuleBookId(data.id || id);
+        try {
+          localStorage.setItem(ACTIVE_RULE_BOOK_ID_KEY, String(data.id || id));
+        } catch {}
+      } catch (e) {
+        console.error("[RuleBooks] Load book failed:", e);
+        if (typeof window !== "undefined") {
+          window.alert(e?.message || "Failed to load rule book");
+        }
+      }
+    },
+    [setAlertRules, setAlertRuleGroups, setMasterBlinkColor, masterBlinkColor]
+  );
+
+  const handleSaveRuleBook = useCallback(
+    async (mode) => {
+      try {
+        if (!alertRules || !alertRules.length) {
+          window.alert("No rules to save. Create some rules first.");
+          return;
+        }
+        let name = "";
+        let id = null;
+        if (mode === "new") {
+          name = window.prompt("Enter a name for this rule book:");
+          if (!name || !name.trim()) return;
+        } else if (mode === "update") {
+          const current = serverRuleBooks.find((b) => b.id === selectedRuleBookId);
+          if (!current) {
+            window.alert("No rule book is selected to update.");
+            return;
+          }
+          name = current.name;
+          id = current.id;
+        } else {
+          return;
+        }
+
+        const payload = {
+          type: "lab_single_trade_alert_rules",
+          version: 2,
+          createdAt: new Date().toISOString(),
+          rules: alertRules || [],
+          groups: alertRuleGroups || [],
+          masterBlinkColor: masterBlinkColor || "#f97316",
+        };
+
+        const res = await fetch(api("/api/alert-rule-books"), {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ id, name: name.trim(), payload }),
+        });
+        const data = await res.json().catch(() => ({}));
+        if (!res.ok || !data.ok) {
+          throw new Error(data.error || res.statusText || "Failed to save rule book");
+        }
+        // Refresh list and remember active id
+        const saved = data.ruleBook;
+        try {
+          localStorage.setItem(ACTIVE_RULE_BOOK_ID_KEY, String(saved.id));
+        } catch {}
+        setSelectedRuleBookId(saved.id);
+        // Reload list
+        try {
+          const listRes = await fetch(api("/api/alert-rule-books"));
+          const listData = await listRes.json().catch(() => ({}));
+          const list = Array.isArray(listData.ruleBooks) ? listData.ruleBooks : [];
+          setServerRuleBooks(list);
+        } catch (e2) {
+          console.error("[RuleBooks] Reload list failed:", e2);
+        }
+        if (typeof window !== "undefined") {
+          window.alert(mode === "new" ? "Rule book saved on server." : "Rule book updated on server.");
+        }
+      } catch (e) {
+        console.error("[RuleBooks] Save failed:", e);
+        if (typeof window !== "undefined") {
+          window.alert(e?.message || "Failed to save rule book");
+        }
+      }
+    },
+    [alertRules, alertRuleGroups, masterBlinkColor, serverRuleBooks, selectedRuleBookId]
+  );
+
   const handleExportAlertRules = useCallback(() => {
     if (typeof window === "undefined" || !window.document) return;
     try {
@@ -890,6 +1035,7 @@ function LiveTradeChartSection({
         createdAt: new Date().toISOString(),
         rules: alertRules || [],
         groups: alertRuleGroups || [],
+        masterBlinkColor: masterBlinkColor || "#f97316",
       };
       const json = JSON.stringify(payload, null, 2);
       const blob = new Blob([json], { type: "application/json" });
@@ -1168,6 +1314,66 @@ function LiveTradeChartSection({
               <span className="font-semibold text-violet-200">Interval</span> and{" "}
               <span className="font-semibold text-violet-200">Candle row</span> (current / prev / prior).
             </p>
+            {/* Server-side rule books */}
+            <div className="mb-4 p-3 rounded-xl bg-[#181818] border border-violet-700/60 space-y-2">
+              <div className="flex flex-wrap items-center gap-2">
+                <span className="text-xs font-semibold text-violet-200">Rule books (saved on server)</span>
+                <select
+                  className="bg-[#111] border border-gray-700 rounded px-2 py-1 text-[11px] min-w-[160px]"
+                  value={selectedRuleBookId || ""}
+                  onChange={(e) => {
+                    const v = e.target.value;
+                    if (!v) {
+                      setSelectedRuleBookId(null);
+                      try {
+                        localStorage.removeItem(ACTIVE_RULE_BOOK_ID_KEY);
+                      } catch {}
+                      return;
+                    }
+                    const id = parseInt(v, 10);
+                    if (Number.isFinite(id)) {
+                      setSelectedRuleBookId(id);
+                      handleLoadRuleBook(id);
+                    }
+                  }}
+                >
+                  <option value="">(None selected)</option>
+                  {serverRuleBooks.map((b) => (
+                    <option key={b.id} value={b.id}>
+                      {b.name}
+                    </option>
+                  ))}
+                </select>
+                {ruleBooksLoading && (
+                  <span className="text-[11px] text-gray-400">Loading…</span>
+                )}
+                {ruleBooksError && (
+                  <span className="text-[11px] text-amber-400">
+                    {ruleBooksError}
+                  </span>
+                )}
+              </div>
+              <div className="flex flex-wrap items-center gap-2 text-[11px]">
+                <button
+                  type="button"
+                  className="px-2 py-1 rounded bg-emerald-700 hover:bg-emerald-600"
+                  onClick={() => handleSaveRuleBook("new")}
+                >
+                  Save as new rule book
+                </button>
+                <button
+                  type="button"
+                  className="px-2 py-1 rounded bg-blue-700 hover:bg-blue-600 disabled:opacity-40 disabled:cursor-not-allowed"
+                  disabled={!selectedRuleBookId}
+                  onClick={() => handleSaveRuleBook("update")}
+                >
+                  Update selected rule book
+                </button>
+                <span className="text-[11px] text-gray-400">
+                  Rule books are stored in the server database and can be loaded from GitHub Pages or localhost.
+                </span>
+              </div>
+            </div>
             {/* Master blink color */}
             <div className="mb-4 p-3 rounded-xl bg-[#181818] border border-violet-700/60 flex flex-wrap items-center gap-3">
               <span className="text-xs font-semibold text-violet-200">Master blink color</span>
@@ -2730,6 +2936,9 @@ export default function SingleTradeLiveView({ formattedRow: initialFormattedRow,
           setAlertRules(rules);
           const groups = Array.isArray(parsed?.groups) ? parsed.groups : [];
           setAlertRuleGroups(groups);
+          if (parsed?.masterBlinkColor && /^#[0-9A-Fa-f]{6}$/.test(parsed.masterBlinkColor)) {
+            setMasterBlinkColor(parsed.masterBlinkColor);
+          }
         } catch (err) {
           console.error("[AlertRules] Import parse error:", err);
           window.alert("Failed to parse script file. See console for details.");
