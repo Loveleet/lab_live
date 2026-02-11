@@ -2816,11 +2816,26 @@ export default function SingleTradeLiveView({ formattedRow: initialFormattedRow,
     try {
       localStorage.setItem(key, typeof value === "string" ? value : JSON.stringify(value));
     } catch {}
-    fetch(api("/api/ui-settings"), {
+    const url = api("/api/ui-settings");
+    fetch(url, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ key, value }),
-    }).catch(() => {});
+    })
+      .then((res) => {
+        if (!res.ok) {
+          return res.json().then((d) => { throw new Error(d?.error || res.statusText); });
+        }
+        return res.json();
+      })
+      .then(() => {
+        if (key === BINANCE_COLUMNS_ORDER_KEY || key === BINANCE_COLUMNS_VISIBILITY_KEY) {
+          console.debug("[UI Settings] Saved to server:", key);
+        }
+      })
+      .catch((err) => {
+        console.warn("[UI Settings] Save failed for", key, ":", err?.message || err);
+      });
   }, []);
 
   useEffect(() => {
@@ -2835,18 +2850,37 @@ export default function SingleTradeLiveView({ formattedRow: initialFormattedRow,
   // Load UI settings from cloud so layout persists when using GitHub Pages / different browser
   useEffect(() => {
     let cancelled = false;
-    fetch(api("/api/ui-settings"))
-      .then((res) => res.json())
+    const url = api("/api/ui-settings");
+    fetch(url)
+      .then((res) => {
+        if (!res.ok) {
+          console.warn("[UI Settings] GET failed:", res.status, res.statusText);
+          return res.json().then((d) => { throw new Error(d?.error || res.statusText); });
+        }
+        return res.json();
+      })
       .then((data) => {
         if (cancelled) return;
         const list = Array.isArray(data?.settings) ? data.settings : [];
         const map = {};
         list.forEach((s) => {
-          if (s && s.key != null) map[s.key] = s.value;
+          if (s && s.key != null) {
+            let val = s.value;
+            if (typeof val === "string") {
+              try {
+                val = JSON.parse(val);
+              } catch (_) { /* keep string */ }
+            }
+            map[s.key] = val;
+          }
         });
+        if (list.length > 0) console.debug("[UI Settings] Loaded from server:", Object.keys(map));
         setServerUiSettings(map);
       })
-      .catch(() => setServerUiSettings({}));
+      .catch((err) => {
+        console.warn("[UI Settings] Load error:", err?.message || err);
+        setServerUiSettings({});
+      });
     return () => { cancelled = true; };
   }, []);
 
@@ -2871,11 +2905,15 @@ export default function SingleTradeLiveView({ formattedRow: initialFormattedRow,
     if (serverUiSettings[SIGNALS_VIEW_MODE_KEY] === "rowWise" || serverUiSettings[SIGNALS_VIEW_MODE_KEY] === "intervalWise") {
       setSignalsTableViewMode(serverUiSettings[SIGNALS_VIEW_MODE_KEY]);
     }
-    if (Array.isArray(serverUiSettings[BINANCE_COLUMNS_ORDER_KEY]) && serverUiSettings[BINANCE_COLUMNS_ORDER_KEY].length) {
-      setBinanceColumns(serverUiSettings[BINANCE_COLUMNS_ORDER_KEY]);
+    const binanceOrder = serverUiSettings[BINANCE_COLUMNS_ORDER_KEY];
+    if (Array.isArray(binanceOrder) && binanceOrder.length) {
+      console.debug("[UI Settings] Applying Binance column order from server:", binanceOrder.length, "columns");
+      setBinanceColumns(binanceOrder);
     }
-    if (serverUiSettings[BINANCE_COLUMNS_VISIBILITY_KEY] && typeof serverUiSettings[BINANCE_COLUMNS_VISIBILITY_KEY] === "object") {
-      setBinanceColumnVisibility(serverUiSettings[BINANCE_COLUMNS_VISIBILITY_KEY]);
+    const binanceVis = serverUiSettings[BINANCE_COLUMNS_VISIBILITY_KEY];
+    if (binanceVis && typeof binanceVis === "object" && !Array.isArray(binanceVis)) {
+      console.debug("[UI Settings] Applying Binance column visibility from server");
+      setBinanceColumnVisibility(binanceVis);
     }
   }, [serverUiSettings]);
 
