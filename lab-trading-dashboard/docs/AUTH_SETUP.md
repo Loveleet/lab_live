@@ -29,7 +29,7 @@ CREATE INDEX IF NOT EXISTS idx_sessions_exp  ON sessions(expires_at);
 | `/auth/login` | POST | No | `{ email, password }` → sets session cookie |
 | `/auth/logout` | POST | No | Clears session cookie |
 | `/auth/me` | GET | Yes | Returns current user |
-| `/api/*` | * | Yes | Protected (except `/api/health`, `/api/server-info`, `/api/tunnel-url`) |
+| `/api/*` | * | Yes | Protected (except `/api/health`; `/api/server-info` is also protected) |
 
 ## Login
 

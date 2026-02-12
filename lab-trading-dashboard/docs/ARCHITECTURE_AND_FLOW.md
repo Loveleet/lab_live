@@ -63,8 +63,8 @@ There is no separate “frontend host” in production: the cloud **is** both fr
 | Secret / config | Where it lives | In Git? |
 |-----------------|----------------|--------|
 | **Cloud server (150.241.244.130)** | | |
-| DB connection (DB_HOST, DB_USER, DB_PASSWORD, DB_PORT, DB_NAME) | **On cloud only:** `/etc/lab-trading-dashboard.env` | No |
-| FALLBACK_API_URL (Render URL for fallback data) | Same file: `/etc/lab-trading-dashboard.env` | No |
+| DB connection (DB_HOST, DB_USER, DB_PASSWORD, DB_PORT, DB_NAME) | **On cloud only:** `/etc/lab-trading-dashboard.secrets.env` (or `/etc/lab-trading-dashboard.env`) | No |
+| FALLBACK_API_URL (Render URL for fallback data) | Same file on cloud | No |
 | **Laptop (your machine)** | | |
 | SSH to cloud (DEPLOY_HOST, DEPLOY_PASSWORD) | Your **local** `.env` in the repo root | No (`.env` is gitignored) |
 | DB server SSH (DB_SERVER, DB_SERVER_PASSWORD) | Same local `.env` | No |
@@ -75,7 +75,7 @@ There is no separate “frontend host” in production: the cloud **is** both fr
 
 So:
 
-- **Cloud:** all runtime secrets (DB, FALLBACK_API_URL) → **`/etc/lab-trading-dashboard.env`** (read by systemd and by the server at startup).
+- **Cloud:** all runtime secrets (DB, FALLBACK_API_URL) → **`/etc/lab-trading-dashboard.secrets.env`** (read by systemd and by the server at startup).
 - **Laptop:** deploy and SSH credentials → **`.env`** in the project root (only for scripts like `upload-dist.sh`, never committed).
 
 ---
@@ -84,17 +84,17 @@ So:
 
 On startup the Node server (in order):
 
-1. Tries to load `.env` from `server/` and from project root (for local runs).
-2. Tries to load **`/etc/lab-trading-dashboard.env`** (main file on the cloud).
+1. Tries `SECRETS_FILE`, then `server/secrets.env`, `../secrets.env`, **`/etc/lab-trading-dashboard.secrets.env`** (main file on the cloud).
+2. For local runs, same paths; `secrets.env` is used.
 
-Systemd also passes this file to the process:
+Systemd also passes the secrets file to the process:
 
 ```ini
-EnvironmentFile=-/etc/lab-trading-dashboard.env
+EnvironmentFile=-/etc/lab-trading-dashboard.secrets.env
 ExecStart=/usr/bin/node server.js
 ```
 
-So **all passwords and config for the running app** come from **`/etc/lab-trading-dashboard.env`** on the cloud (and optionally from `.env` on your machine when you run scripts).
+So **all passwords and config for the running app** come from **`/etc/lab-trading-dashboard.secrets.env`** on the cloud.
 
 ---
 

@@ -1,0 +1,38 @@
+# systemd unit for lab-trading-dashboard Node server
+# Keeps server.js running and starts it on boot.
+#
+# Install on cloud (one time):
+#   1. Copy this file to the cloud, then:
+#      sudo cp lab-trading-dashboard.service /etc/systemd/system/
+#   2. If your app path is not /root/lab-trading-dashboard/server, edit the file:
+#      sudo nano /etc/systemd/system/lab-trading-dashboard.service
+#      Change WorkingDirectory= to your path.
+#   3. Run:
+#      sudo systemctl daemon-reload
+#      sudo systemctl enable lab-trading-dashboard
+#      sudo systemctl start lab-trading-dashboard
+#
+# Useful commands:
+#   sudo systemctl status lab-trading-dashboard   # see status
+#   sudo systemctl restart lab-trading-dashboard # restart after code change
+#   sudo journalctl -u lab-trading-dashboard -f  # view logs
+
+[Unit]
+Description=LAB Trading Dashboard (Node API server)
+After=network.target
+
+[Service]
+Type=simple
+User=root
+WorkingDirectory=/root/lab-trading-dashboard/server
+ExecStart=/usr/bin/node server.js
+Restart=always
+RestartSec=5
+Environment=NODE_ENV=production
+EnvironmentFile=-/etc/lab-trading-dashboard.secrets.env
+StandardOutput=journal
+StandardError=journal
+SyslogIdentifier=lab-trading-dashboard
+
+[Install]
+WantedBy=multi-user.target

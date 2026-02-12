@@ -3174,7 +3174,7 @@ export default function SingleTradeLiveView({ formattedRow: initialFormattedRow,
     if (!res.ok) {
       const msg = data.message || data.detail || data.error || res.statusText;
       if (res.status === 404) {
-        throw new Error(data.message || "API endpoint not found. Is the server running? If using GitHub Pages, wait for api-config to load and try again.");
+        throw new Error(data.message || "API endpoint not found. Is the server running? If using GitHub Pages, set API_BASE_URL and redeploy.");
       }
       throw new Error(msg || `API error ${res.status}`);
     }

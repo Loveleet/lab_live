@@ -1,0 +1,1 @@
+cd lab-trading-dashboard && ./scripts/start-dev.sh
