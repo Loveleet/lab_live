@@ -96,9 +96,9 @@ Once this is done, you use **only** GitHub Pages; the API is reached over HTTPS 
 
 ---
 
-## Optional: clubinfotech.com also opens the website
+## Optional: clubinfotech.com redirects to GitHub Pages
 
-To have **https://clubinfotech.com** and **https://www.clubinfotech.com** serve the same dashboard (same app as GitHub Pages, but same-origin API):
+So that typing **clubinfotech.com** (or **www.clubinfotech.com**) sends users to the dashboard at **https://loveleet.github.io/lab_live/**:
 
 ### 1. DNS (at GoDaddy or your registrar)
 
@@ -109,21 +109,13 @@ Check: `ping clubinfotech.com` and `ping www.clubinfotech.com` → both show `15
 
 ### 2. Nginx on the cloud server
 
-Add a server block for the main domain (or use the full `docs/nginx-lab-trading.conf` which includes both API and main site):
+Add a server block that **redirects** to GitHub Pages (or use the full `docs/nginx-lab-trading.conf`):
 
 ```nginx
 server {
     listen 80;
     server_name clubinfotech.com www.clubinfotech.com;
-
-    location / {
-        proxy_pass http://127.0.0.1:10000;
-        proxy_http_version 1.1;
-        proxy_set_header Host $host;
-        proxy_set_header X-Real-IP $remote_addr;
-        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
-        proxy_set_header X-Forwarded-Proto $scheme;
-    }
+    return 301 https://loveleet.github.io/lab_live$request_uri;
 }
 ```
 
@@ -135,12 +127,8 @@ sudo systemctl reload nginx
 sudo certbot --nginx -d clubinfotech.com -d www.clubinfotech.com
 ```
 
-Choose redirect HTTP→HTTPS when asked.
+When certbot asks to redirect HTTP→HTTPS, choose **Yes**. After that, **https://clubinfotech.com** will also redirect to GitHub Pages (certbot adds HTTPS to the same block; the 301 redirect will send users to loveleet.github.io/lab_live/).
 
-### 3. Deploy
+### 3. Test
 
-Redeploy the app to the cloud so the updated server (CORS) and frontend (same-origin for clubinfotech.com) are live. The frontend will use `/api` on the same host when opened from clubinfotech.com.
-
-### 4. Test
-
-Open **https://clubinfotech.com** (or **https://www.clubinfotech.com**). You should see the same dashboard; login and data use the same server (same-origin, no CORS).
+Open **http://clubinfotech.com** or **https://clubinfotech.com** — you should be redirected to **https://loveleet.github.io/lab_live/**.
