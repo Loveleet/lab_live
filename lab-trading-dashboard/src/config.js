@@ -59,13 +59,22 @@ function isCloudServerOrigin() {
   return h === "150.241.244.130";
 }
 
+/** Ensure API base has a protocol so fetch() uses it as absolute URL, not relative to GitHub Pages. */
+function ensureProtocol(url) {
+  if (!url || typeof url !== "string") return url;
+  const u = url.trim().replace(/\/+$/, "");
+  if (!u) return u;
+  if (u.startsWith("http://") || u.startsWith("https://")) return u;
+  return "https://" + u;
+}
+
 function getApiBaseUrl() {
   // When served from cloud server, always use same origin so /api/* hits this server (real olab data)
   if (isCloudServerOrigin()) return "";
   
   // Prefer runtime api-config.json (fixed cloud URL) if loaded
-  if (runtimeApiBaseUrl) return runtimeApiBaseUrl;
-  return getBuildTimeDefault();
+  if (runtimeApiBaseUrl) return ensureProtocol(runtimeApiBaseUrl);
+  return ensureProtocol(getBuildTimeDefault());
 }
 
 /** Load API URL from api-config.json once (fixed cloud IP or domain). No tunnel; no periodic refetch. */
