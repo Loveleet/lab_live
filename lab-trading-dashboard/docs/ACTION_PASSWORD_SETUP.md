@@ -1,13 +1,13 @@
 # Action password (Auto-Pilot, Execute, End Trade, etc.)
 
-The dashboard uses **two different passwords**:
+When you click **Auto Enable**, **Execute**, **End Trade**, etc., the modal asks for a password. The server accepts **either** of these:
 
-| Purpose | Where it's stored | Used for |
-|--------|--------------------|----------|
-| **Login password** | `users.password_hash` (hashed) | Sign in to the dashboard |
-| **Action password** | `lab_settings` table, key `action_password` | Auto-Pilot, Execute, End Trade, Hedge, Stop, +Inv, Clear |
+| Option | Description |
+|--------|--------------|
+| **Your login password** | The same password you use to sign in. No extra setup — just enter it in the modal. |
+| **Action password** | A separate value in `lab_settings` (key `action_password`). Optional; use if you want a different password for actions. |
 
-The modal that appears when you click **Auto Enable**, **Execute**, etc. asks for the **action password**, not your login password. Even if you use the same string for both, you must **set the action password in the database** once.
+So by default you can use **your login password** in the modal. You only need to set `action_password` in `lab_settings` if you want a different password for actions.
 
 ---
 
