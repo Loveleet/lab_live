@@ -3109,10 +3109,13 @@ export default function SingleTradeLiveView({ formattedRow: initialFormattedRow,
       throw new Error("Network error: cannot reach the API. If on localhost, start the server (e.g. node server or Python api_signals). If on GitHub Pages, wait for the page to load and try again.");
     }
     if (!res.ok) {
-      const err = await res.json().catch(() => ({ message: res.statusText }));
-      const msg = err.message || err.detail || res.statusText;
+      const err = await res.json().catch(() => ({}));
+      const msg = err.error || err.message || err.detail || res.statusText;
       if (res.status === 404) {
         throw new Error("API endpoint not found. Is the server running? Start the backend (e.g. node server on port 10000) and try again.");
+      }
+      if (res.status === 501) {
+        throw new Error(msg || "This action is not yet available on the server. Your password was accepted.");
       }
       throw new Error(msg || `API error ${res.status}`);
     }
