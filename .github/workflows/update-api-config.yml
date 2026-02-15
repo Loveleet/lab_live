@@ -1,6 +1,5 @@
-# Run every 2 minutes. Writes api-config.json to gh-pages so the frontend gets the current API URL at runtime (no full redeploy needed after tunnel restart).
-# Triggers: schedule every 2 min; manual with optional api_url; cloud triggers with api_url.
-# Resolves URL: input api_url > secret API_BASE_URL > curl cloud /api/tunnel-url.
+# Writes api-config.json to gh-pages with fixed API URL from secret (no tunnel).
+# Run manually or on schedule. URL = input api_url or secret API_BASE_URL only.
 
 name: Update API config
 
@@ -10,7 +9,7 @@ on:
   workflow_dispatch:
     inputs:
       api_url:
-        description: 'Tunnel URL (e.g. https://xxx.trycloudflare.com). If empty, uses secret or cloud /api/tunnel-url'
+        description: 'API URL (e.g. http://150.241.244.130:10000). If empty, uses secret API_BASE_URL'
         required: false
         type: string
 
@@ -21,7 +20,7 @@ jobs:
   update-api-config:
     runs-on: ubuntu-latest
     steps:
-      - name: Resolve tunnel URL
+      - name: Resolve API URL
         id: url
         run: |
           if [ -n "${{ github.event.inputs.api_url }}" ]; then
@@ -30,18 +29,8 @@ jobs:
           elif [ -n "${{ secrets.API_BASE_URL }}" ]; then
             echo "url=${{ secrets.API_BASE_URL }}" >> $GITHUB_OUTPUT
             echo "Using secret API_BASE_URL"
-          else
-            # Fallback: fetch from cloud API (expects {"tunnelUrl":"https://..."})
-            RAW=$(curl -sf "http://150.241.244.130:10000/api/tunnel-url" 2>/dev/null || true)
-            if [ -n "$RAW" ]; then
-              RESOLVED=$(echo "$RAW" | node -e "let d='';process.stdin.on('data',c=>d+=c).on('end',()=>{try{const j=JSON.parse(d);console.log((j.tunnelUrl||j.apiBaseUrl||'').trim())}catch(e){}})" 2>/dev/null)
-              if [ -n "$RESOLVED" ]; then
-                echo "url=$RESOLVED" >> $GITHUB_OUTPUT
-                echo "Using cloud /api/tunnel-url"
-              fi
-            fi
           fi
-          if [ -z "$(cat $GITHUB_OUTPUT | grep '^url=' | cut -d= -f2-)" ]; then
+          if [ -z "$(cat $GITHUB_OUTPUT 2>/dev/null | grep '^url=' | cut -d= -f2-)" ]; then
             echo "No URL resolved; skipping write"
             echo "skip=true" >> $GITHUB_OUTPUT
           else

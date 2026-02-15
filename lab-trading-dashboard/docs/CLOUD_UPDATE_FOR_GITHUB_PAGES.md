@@ -1,41 +1,45 @@
 # Fix cloud server so GitHub Pages shows data
 
-When GitHub Pages (loveleet.github.io/lab_live) shows "No trade records" and zeros, the app is calling your Cloudflare tunnel → cloud server. The **cloud** must run the latest `server.js` and use the **olab** database.
+When GitHub Pages (loveleet.github.io/lab_live) shows "No trade records" and zeros, the app is calling your **backend** (cloud server). The cloud must run the latest `server.js` and use the **olab** database. Use a **fixed API URL** (cloud IP or domain); no tunnel.
 
 ## 1. Deploy latest server to the cloud
 
-From your laptop (in repo `lab-trading-dashboard`):
+From your laptop (in `lab-trading-dashboard`):
 
 ```bash
-export DEPLOY_HOST=root@150.241.244.130
-./scripts/deploy-to-server.sh
+./scripts/copy-server-to-cloud.sh root 150.241.244.130 /root/lab-trading-dashboard
 ```
 
-Or copy the server manually:
+Or copy manually:
 
 ```bash
-scp server/server.js root@150.241.244.130:/opt/apps/lab-trading-dashboard/server/
+scp server/server.js root@150.241.244.130:/root/lab-trading-dashboard/server/
 ssh root@150.241.244.130 "sudo systemctl restart lab-trading-dashboard"
 ```
 
-## 2. Cloud env: use database **olab** (real data)
+(Use your actual server path if different, e.g. `/opt/apps/lab-trading-dashboard/server/`.)
 
-On the cloud, if you use an env file (e.g. `/etc/lab-trading-dashboard.env`), set:
+## 2. Cloud secrets: use database **olab** (real data)
 
-- **DB_NAME=olab** (real trading data; `labdb2` has only demo/seed rows)
-- Optionally **DB_HOST=localhost** if PostgreSQL runs on the same machine
+On the cloud, edit the secrets file (e.g. `/etc/lab-trading-dashboard.secrets.env`):
+
+- **DB_NAME=olab** (real trading data)
+- **DB_HOST**, **DB_USER**, **DB_PASSWORD**, **DB_PORT** as needed
 
 Example:
 
 ```bash
-# On cloud: sudo nano /etc/lab-trading-dashboard.env
-DB_HOST=localhost
-DB_NAME=olab
+# On cloud: sudo nano /etc/lab-trading-dashboard.secrets.env
+DB_HOST=150.241.244.130
+DB_PORT=5432
 DB_USER=lab
-DB_PASSWORD=IndiaNepal1-
+DB_PASSWORD=your_password
+DB_NAME=olab
+PORT=10000
+NODE_ENV=production
 ```
 
-If you **don’t** set any DB_* vars, the server defaults to host **150.241.244.130** and database **olab** (correct for real data).
+If you don’t set DB_* vars, the server defaults to host **150.241.244.130** and database **olab**.
 
 ## 3. Restart the app on the cloud
 
@@ -52,21 +56,21 @@ curl -s http://localhost:10000/api/trades | head -c 300
 - **GET /api/server-info** should show:
   - `hasGitHubPagesOrigin: true`
   - `database: "olab"`
-  - `message: "Cloud server config OK for GitHub Pages (CORS + olab)"`
+  - `message` indicating CORS + olab OK.
 
-- **GET /api/trades** should return a non‑empty `trades` array (e.g. 1000+ rows).
+- **GET /api/trades** should return a non‑empty `trades` array.
 
-Via tunnel (from browser or laptop):
+From your laptop (use your backend URL — cloud IP or domain):
 
-```text
-https://YOUR-TUNNEL.trycloudflare.com/api/server-info
-https://YOUR-TUNNEL.trycloudflare.com/api/trades
+```bash
+curl -s http://150.241.244.130:10000/api/server-info
+curl -s http://150.241.244.130:10000/api/trades
 ```
 
 ## 5. GitHub Pages
 
-- Ensure GitHub secret **API_BASE_URL** = your current Cloudflare tunnel URL (e.g. `https://xxxx.trycloudflare.com`).
-- Redeploy frontend (push to main or run “Deploy frontend to GitHub Pages”).
+- Set GitHub secret **API_BASE_URL** = your backend URL (e.g. `http://150.241.244.130:10000` or `https://your-domain.com`), no trailing slash.
+- Run **Deploy frontend to GitHub Pages** (or push to trigger it).
 - Open https://loveleet.github.io/lab_live/ and hard‑refresh (Ctrl+Shift+R).
 
-If the cloud has the latest server (CORS + olab) and the tunnel points at it, GitHub Pages will show real data.
+With the cloud running the latest server (CORS + olab) and **API_BASE_URL** set correctly, GitHub Pages will show real data.

@@ -23,7 +23,7 @@ import RefreshControls from './components/RefreshControls';
 import SuperTrendPanel from "./SuperTrendPanel";
 import TradeComparePage from "./components/TradeComparePage";
 import SoundSettings from "./components/SoundSettings";
-import { API_BASE_URL, getApiBaseUrl, api, apiFetch, loadRuntimeApiConfig } from "./config";
+import { API_BASE_URL, getApiBaseUrl, api, apiFetch, loadRuntimeApiConfig, isLocalhostOrigin, getLocalhostUseCloudFallback } from "./config";
 
 // Animated SVG background for LAB title
 function AnimatedGraphBackground({ width = 400, height = 80, opacity = 0.4 }) {
@@ -211,6 +211,16 @@ const App = () => {
     return () => clearInterval(id);
   }, [isLoggedIn]);
 
+  // Global 401: any API call that returns 401 (e.g. session expired) → log out
+  useEffect(() => {
+    const onUnauthorized = () => {
+      setLoggedIn(false);
+      setShowSessionWarning(false);
+    };
+    window.addEventListener("lab-unauthorized", onUnauthorized);
+    return () => window.removeEventListener("lab-unauthorized", onUnauthorized);
+  }, []);
+
   // -------- Sound / New-Trade settings (non-invasive to filters) --------
   const SOUND_STORAGE_KEY = "soundSettings";
   const [isSoundOpen, setIsSoundOpen] = useState(false);
@@ -376,7 +386,7 @@ const [selectedIntervals, setSelectedIntervals] = useState(() => {
   
 
   const refreshAllData = useCallback(async () => {
-    // On GitHub Pages with no API configured, skip requests to avoid 404 spam (getApiBaseUrl() updates after api-config.json loads)
+    // On GitHub Pages with no API configured, skip requests until api-config.json or build URL is set
     if (typeof window !== "undefined" && window.location?.hostname?.includes("github.io") && !getApiBaseUrl()) {
       setTradeData([]);
       setMachines([]);
@@ -485,12 +495,7 @@ const [selectedIntervals, setSelectedIntervals] = useState(() => {
         console.log("[DEBUG] GitHub Pages error - current API base:", currentApiBase);
         setApiUnreachable(true);
         if (typeof loadRuntimeApiConfig === "function") {
-          console.log("[DEBUG] Reloading api-config.json...");
-          loadRuntimeApiConfig().then(() => {
-            const newApiBase = getApiBaseUrl();
-            console.log("[DEBUG] After reload - new API base:", newApiBase);
-            setTimeout(() => refreshAllData(), 4000);
-          });
+          loadRuntimeApiConfig().then(() => setTimeout(() => refreshAllData(), 2000));
         }
       }
     }
@@ -500,7 +505,7 @@ const [selectedIntervals, setSelectedIntervals] = useState(() => {
     refreshAllData();
   }, [refreshAllData]);
 
-  // When api-config.json loads (runtime API URL), refresh data and re-render so banner can hide
+  // When api-config.json loads (fixed API URL), refresh data
   useEffect(() => {
     const onConfigLoaded = () => {
       setApiBaseForBanner(getApiBaseUrl());
@@ -1528,18 +1533,17 @@ useEffect(() => {
                   )}
                   {apiUnreachable && !corsError && !localServerDown && (
                     <div className="mb-4 p-4 rounded-lg bg-amber-100 dark:bg-amber-900/40 border border-amber-400 dark:border-amber-600 text-amber-900 dark:text-amber-100 text-sm">
-                      <strong className="block mb-2">API unreachable (tunnel URL may have changed)</strong>
-                      <p className="mb-2">The current API URL could not be resolved (e.g. cloud restarted and got a new tunnel URL). The app will refetch the config and retry in a few seconds.</p>
-                      <p className="text-xs">If it still fails: on the cloud run the tunnel (<code className="bg-amber-200/60 dark:bg-amber-800/60 px-1 rounded">/opt/apps/lab-trading-dashboard/scripts/cron-tunnel-update.sh</code> or start cloudflared), wait 2–3 min, then <strong>hard-refresh this page</strong> (Ctrl+Shift+R).</p>
+                      <strong className="block mb-2">API unreachable</strong>
+                      <p className="mb-2">The backend at the current API URL could not be reached. Check that the server is running and that <code className="bg-amber-200/60 dark:bg-amber-800/60 px-1 rounded">API_BASE_URL</code> is set to your cloud URL (e.g. <code className="bg-amber-200/60 dark:bg-amber-800/60 px-1 rounded">http://150.241.244.130:10000</code>).</p>
+                      <p className="text-xs">Hard-refresh (Ctrl+Shift+R) after fixing the URL or restarting the server.</p>
                     </div>
                   )}
                   {typeof window !== "undefined" && window.location?.hostname?.includes("github.io") && !apiBaseForBanner && !apiUnreachable && (
                     <div className="mb-4 p-4 rounded-lg bg-blue-100 dark:bg-blue-900/40 border border-blue-400 dark:border-blue-600 text-blue-900 dark:text-blue-100 text-sm">
                       <strong className="block mb-2">API not configured for GitHub Pages</strong>
-                      <p className="mb-2">To load data here, expose your API over HTTPS (e.g. Cloudflare Tunnel), then:</p>
+                      <p className="mb-2">To load data here, set your backend URL (cloud IP or domain) and redeploy:</p>
                       <ol className="list-decimal list-inside space-y-1 mt-2 text-xs">
-                        <li>From laptop: <code className="bg-blue-200/60 dark:bg-blue-800/60 px-1 rounded">./scripts/run-tunnel-from-laptop.sh</code> — or on the cloud server: <code className="bg-blue-200/60 dark:bg-blue-800/60 px-1 rounded">./scripts/start-https-tunnel-for-pages.sh</code>. Copy the <code className="bg-blue-200/60 dark:bg-blue-800/60 px-1 rounded">https://xxx.trycloudflare.com</code> URL.</li>
-                        <li>Add secret: <a href="https://github.com/Loveleet/lab_live/settings/secrets/actions" target="_blank" rel="noopener noreferrer" className="underline font-medium">Settings → Secrets and variables → Actions</a> → <code className="bg-blue-200/60 dark:bg-blue-800/60 px-1 rounded">API_BASE_URL</code> = that URL (no trailing slash).</li>
+                        <li>Add secret <a href="https://github.com/Loveleet/lab_live/settings/secrets/actions" target="_blank" rel="noopener noreferrer" className="underline font-medium">Settings → Secrets → Actions</a> → <code className="bg-blue-200/60 dark:bg-blue-800/60 px-1 rounded">API_BASE_URL</code> = your backend URL (e.g. <code className="bg-blue-200/60 dark:bg-blue-800/60 px-1 rounded">http://150.241.244.130:10000</code>, no trailing slash).</li>
                         <li><a href="https://github.com/Loveleet/lab_live/actions/workflows/deploy-frontend-pages.yml" target="_blank" rel="noopener noreferrer" className="underline font-medium">Run &quot;Deploy frontend to GitHub Pages&quot;</a>, then hard-refresh this page.</li>
                       </ol>
                     </div>

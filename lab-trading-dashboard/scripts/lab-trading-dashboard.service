@@ -1,0 +1,51 @@
+# systemd unit for lab-trading-dashboard Node server
+# Keeps server.js running, starts it on boot, and restarts on crash.
+#
+# Install on cloud (one time):
+#   1. Copy this file to the cloud, then:
+#      sudo cp lab-trading-dashboard.service /etc/systemd/system/
+#   2. If your app path is not /root/lab-trading-dashboard, edit the file:
+#      sudo nano /etc/systemd/system/lab-trading-dashboard.service
+#      Change WorkingDirectory= to your path.
+#   3. Run:
+#      sudo systemctl daemon-reload
+#      sudo systemctl enable lab-trading-dashboard
+#      sudo systemctl start lab-trading-dashboard
+#
+# To survive reboot: ensure PostgreSQL (and this service) are enabled:
+#   sudo systemctl enable postgresql
+#   sudo systemctl enable lab-trading-dashboard
+#
+# Useful commands:
+#   sudo systemctl status lab-trading-dashboard   # see status
+#   sudo systemctl restart lab-trading-dashboard  # restart after code change
+#   sudo journalctl -u lab-trading-dashboard -f   # view logs
+
+[Unit]
+Description=LAB Trading Dashboard (Node API server)
+After=network-online.target postgresql.service
+Wants=network-online.target
+# Start after PostgreSQL so DB is ready (postgresql.service ignored if not present)
+
+[Service]
+Type=simple
+User=root
+# Run from project root so node_modules is found; server.js loads from server/
+WorkingDirectory=/root/lab-trading-dashboard
+# Short delay so PostgreSQL is accepting connections after boot
+ExecStartPre=/bin/sleep 5
+ExecStart=/usr/bin/node server/server.js
+Restart=always
+RestartSec=10
+# Allow many restarts on slow boot (e.g. DB not ready yet)
+StartLimitIntervalSec=300
+StartLimitBurst=15
+Environment=NODE_ENV=production
+Environment=PORT=10000
+EnvironmentFile=-/etc/lab-trading-dashboard.secrets.env
+StandardOutput=journal
+StandardError=journal
+SyslogIdentifier=lab-trading-dashboard
+
+[Install]
+WantedBy=multi-user.target
