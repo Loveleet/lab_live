@@ -117,6 +117,7 @@ const SESSION_CHECK_INTERVAL_MS = 30 * 1000; // check every 30 seconds
 
 const App = () => {
   const [isLoggedIn, setLoggedIn] = useState(false);
+  const [user, setUser] = useState(null);
   const [authChecking, setAuthChecking] = useState(true);
   const [showSessionWarning, setShowSessionWarning] = useState(false);
 
@@ -184,9 +185,11 @@ const App = () => {
   useEffect(() => {
     checkSession().then((data) => {
       setLoggedIn(!!data);
+      setUser(data?.user ?? null);
       setAuthChecking(false);
     }).catch(() => {
       setLoggedIn(false);
+      setUser(null);
       setAuthChecking(false);
     });
   }, []);
@@ -198,7 +201,10 @@ const App = () => {
       checkSession().then((data) => {
         if (!data) {
           setLoggedIn(false);
+          setUser(null);
           setShowSessionWarning(false);
+        } else {
+          setUser(data.user ?? null);
         }
       });
     }, SESSION_CHECK_INTERVAL_MS);
@@ -1403,9 +1409,11 @@ useEffect(() => {
   }
 
   const authContextValue = {
+    user,
     logout: async () => {
       await logoutApi();
       setLoggedIn(false);
+      setUser(null);
       setShowSessionWarning(false);
     },
   };
