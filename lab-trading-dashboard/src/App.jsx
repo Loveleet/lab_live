@@ -17,6 +17,7 @@ import LiveTradeViewPage from './components/LiveTradeViewPage';
 import LiveRunningTradesPage from './components/LiveRunningTradesPage';
 import LoginPage from './components/LoginPage';
 import { checkSession, logoutApi, extendSession, AuthContext, LogoutButton } from './auth';
+import { ThemeProfileProvider, ThemeProfileSelector } from './ThemeProfileContext';
 
 import GroupViewPage from './pages/GroupViewPage';
 import RefreshControls from './components/RefreshControls';
@@ -123,6 +124,7 @@ const App = () => {
   const [showSessionWarning, setShowSessionWarning] = useState(false);
   const [showStayLoggedInPrompt, setShowStayLoggedInPrompt] = useState(false);
   const loggedInAtRef = useRef(0);
+  const themeProfileRef = useRef(null);
 
   const [superTrendData, setSuperTrendData] = useState([]);
   const [emaTrends, setEmaTrends] = useState(null);
@@ -1392,6 +1394,16 @@ useEffect(() => {
     }
   }, [darkMode]);
 
+  // Apply server-backed settings when theme profile loads or user switches profile (debug: check Network + console [Theme])
+  const applyServerSettings = useCallback((settings) => {
+    if (!Array.isArray(settings)) return;
+    const map = {};
+    settings.forEach((s) => { if (s && s.key != null) map[s.key] = s.value; });
+    if (map.theme !== undefined) setDarkMode(map.theme === "dark");
+    if (map.fontSizeLevel !== undefined) { const n = Number(map.fontSizeLevel); if (!Number.isNaN(n)) setFontSizeLevel(n); }
+    if (map.layoutOption !== undefined) { const n = Number(map.layoutOption); if (!Number.isNaN(n)) setLayoutOption(n); }
+  }, []);
+
   // Sync dark mode with localStorage changes (e.g., from reports or another tab)
   useEffect(() => {
     const handleStorage = (e) => {
@@ -1451,6 +1463,11 @@ useEffect(() => {
 
   return (
       <AuthContext.Provider value={authContextValue}>
+      <ThemeProfileProvider
+        isLoggedIn={isLoggedIn}
+        onSettingsLoaded={applyServerSettings}
+        themeProfileRef={themeProfileRef}
+      >
       {showStayLoggedInPrompt && (
         <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/60" role="dialog" aria-modal="true" aria-labelledby="stay-logged-in-title">
           <div className="bg-white dark:bg-[#222] rounded-xl p-6 max-w-sm w-full shadow-xl border border-gray-200 dark:border-gray-700 mx-4">
@@ -1515,13 +1532,22 @@ useEffect(() => {
               </div>
               {/* Light/Dark mode toggle button */}
               <button
-                onClick={() => setDarkMode(dm => !dm)}
+                onClick={() => {
+                  setDarkMode((dm) => {
+                    const next = !dm;
+                    themeProfileRef.current?.saveSetting("theme", next ? "dark" : "light");
+                    return next;
+                  });
+                }}
                 className="absolute right-8 top-3 z-20 p-2 rounded-full bg-white/80 dark:bg-gray-800/80 shadow hover:scale-110 transition-all"
                 title={darkMode ? 'Switch to Light Mode' : 'Switch to Dark Mode'}
                 style={{ fontSize: 24 }}
               >
                 {darkMode ? '🌞' : '🌙'}
               </button>
+              <div className="absolute right-56 top-3 z-20 max-w-[220px]">
+                <ThemeProfileSelector />
+              </div>
               <LogoutButton className="absolute right-36 top-3 z-20 px-2 py-1 rounded-full bg-white/80 dark:bg-gray-800/80 shadow hover:scale-105 transition-all text-sm font-semibold text-red-600 dark:text-red-400" />
               <button
                 onClick={() => setIsSoundOpen(true)}
@@ -1669,6 +1695,7 @@ useEffect(() => {
         const newOption = Math.max(1, layoutOption - 1);
         setLayoutOption(newOption);
         localStorage.setItem("layoutOption", newOption);
+        themeProfileRef.current?.saveSetting("layoutOption", newOption);
       }}
       className="bg-gray-300 hover:bg-gray-400 text-black px-2 py-1 md:px-3 md:py-1.5 rounded text-sm md:text-base"
     >
@@ -1679,6 +1706,7 @@ useEffect(() => {
         const newOption = Math.min(14, layoutOption + 1);
         setLayoutOption(newOption);
         localStorage.setItem("layoutOption", newOption);
+        themeProfileRef.current?.saveSetting("layoutOption", newOption);
       }}
       className="bg-gray-300 hover:bg-gray-400 text-black px-2 py-1 md:px-3 md:py-1.5 rounded text-sm md:text-base"
     >
@@ -1693,6 +1721,7 @@ useEffect(() => {
           setFontSizeLevel((prev) => {
             const newLevel = Math.max(1, prev - 1);
             localStorage.setItem("fontSizeLevel", newLevel);
+            themeProfileRef.current?.saveSetting("fontSizeLevel", newLevel);
             return newLevel;
           })
         }
@@ -1709,6 +1738,7 @@ useEffect(() => {
           setFontSizeLevel((prev) => {
             const newLevel = Math.min(30, prev + 1);
             localStorage.setItem("fontSizeLevel", newLevel);
+            themeProfileRef.current?.saveSetting("fontSizeLevel", newLevel);
             return newLevel;
           })
         }
@@ -2025,6 +2055,7 @@ useEffect(() => {
           </>
         } />
       </Routes>
+      </ThemeProfileProvider>
       </AuthContext.Provider>
   );
 };
