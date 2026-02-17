@@ -2090,7 +2090,9 @@ const LiveTradeViewPage = () => {
       className={darkMode ? 'dark' : ''}
       style={{
         height: '100vh',
-        overflowY: 'auto',
+        overflowY: 'scroll',
+        overflowX: 'hidden',
+        WebkitOverflowScrolling: 'touch',
         background: darkMode ? '#181a20' : '#f7f7fa',
       }}
     >
