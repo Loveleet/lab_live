@@ -16,8 +16,8 @@ import ListViewPage from './components/ListViewPage';
 import LiveTradeViewPage from './components/LiveTradeViewPage';
 import LiveRunningTradesPage from './components/LiveRunningTradesPage';
 import LoginPage from './components/LoginPage';
-import { checkSession, logoutApi, extendSession, AuthContext, LogoutButton } from './auth';
-import { ThemeProfileProvider, ThemeProfileSelector } from './ThemeProfileContext';
+import { checkSession, logoutApi, extendSession, AuthContext } from './auth';
+import { ThemeProfileProvider, ProfilePanel } from './ThemeProfileContext';
 
 import GroupViewPage from './pages/GroupViewPage';
 import RefreshControls from './components/RefreshControls';
@@ -1545,10 +1545,7 @@ useEffect(() => {
               >
                 {darkMode ? '🌞' : '🌙'}
               </button>
-              <div className="absolute right-56 top-3 z-20 max-w-[220px]">
-                <ThemeProfileSelector />
-              </div>
-              <LogoutButton className="absolute right-36 top-3 z-20 px-2 py-1 rounded-full bg-white/80 dark:bg-gray-800/80 shadow hover:scale-105 transition-all text-sm font-semibold text-red-600 dark:text-red-400" />
+              <ProfilePanel buttonClassName="absolute right-36 top-3 z-20 px-3 py-2 rounded-full bg-white/80 dark:bg-gray-800/80 shadow hover:scale-105 transition-all text-sm font-semibold text-gray-700 dark:text-gray-200" />
               <button
                 onClick={() => setIsSoundOpen(true)}
                 className="absolute right-24 top-3 z-20 px-2 py-1 rounded-full bg-white/80 dark:bg-gray-800/80 shadow hover:scale-105 transition-all text-sm font-semibold"
