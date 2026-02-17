@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef, useMemo } from 'react';
+import React, { useState, useEffect, useRef, useMemo, useCallback } from 'react';
 import { useLocation } from 'react-router-dom';
 import SingleTradeLiveView from './SingleTradeLiveView';
 import LiveTradeListViewComponent from './LiveTradeListViewComponent';
@@ -673,6 +673,19 @@ const LiveTradeViewPage = () => {
   });
   // Add loading state for logs
   const [logsLoading, setLogsLoading] = useState(true);
+  // Signals panel (5m, 15m, 1h, 4h): expand/collapse, persisted
+  const SIGNALS_PANEL_STORAGE_KEY = 'liveTradeView_signals_panel_expanded';
+  const [signalsPanelExpanded, setSignalsPanelExpanded] = useState(() => {
+    const saved = localStorage.getItem(SIGNALS_PANEL_STORAGE_KEY);
+    return saved !== 'false'; // default expanded
+  });
+  const toggleSignalsPanel = useCallback(() => {
+    setSignalsPanelExpanded((prev) => {
+      const next = !prev;
+      localStorage.setItem(SIGNALS_PANEL_STORAGE_KEY, String(next));
+      return next;
+    });
+  }, []);
   const [apiJsonLabels, setApiJsonLabels] = useState([]);
   const [apiLoaded, setApiLoaded] = useState(false);
   useEffect(() => {
@@ -2702,18 +2715,18 @@ const LiveTradeViewPage = () => {
       >
         {darkMode ? '🌞' : '🌙'}
       </button>
-      {/* Main content container: top signals (scrollable) + bottom list area */}
+      {/* Main content container: list first, then signals; page scrolls when content is tall */}
       <div style={{ 
         padding: '0 64px 0 32px',
         position: 'relative', 
         display: 'flex', 
         flexDirection: 'column', 
-        height: '100vh',
+        minHeight: '100vh',
         boxSizing: 'border-box',
-        overflow: 'hidden',
+        overflowY: 'auto',
       }}>
-      {/* Top section: summary + filters + events list (main content first) */}
-      <div style={{ flex: 1, minHeight: 0, display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
+      {/* Top section: summary + filters + events list; minHeight so page can scroll when content is tall */}
+      <div style={{ flex: '0 0 auto', minHeight: '60vh', display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
       <LiveTradeListViewComponent
         uid={uid}
         interval={interval}
@@ -3372,23 +3385,53 @@ const LiveTradeViewPage = () => {
           </div>
         </div>
       </div>
-      {/* Signals from Python API: 5m, 15m, 1h, 4h — shown below the list */}
+      {/* Signals from Python API: 5m, 15m, 1h, 4h — expand/collapse, state saved to localStorage */}
       {signalsData?.ok && signalsData?.intervals && (
         <div style={{
           flex: '0 0 auto',
-          maxHeight: '38vh',
-          overflowY: 'auto',
           marginTop: 12,
           padding: '0 0 24px 0',
+          border: darkMode ? '1px solid #334155' : '1px solid #e2e8f0',
+          borderRadius: 8,
+          background: darkMode ? '#1e293b' : '#f1f5f9',
+          overflow: 'hidden',
         }}>
+          <button
+            type="button"
+            onClick={toggleSignalsPanel}
+            style={{
+              width: '100%',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'space-between',
+              padding: '10px 14px',
+              border: 'none',
+              background: darkMode ? '#334155' : '#e2e8f0',
+              color: darkMode ? '#e2e8f0' : '#222',
+              fontSize: 14,
+              fontWeight: 600,
+              cursor: 'pointer',
+              textAlign: 'left',
+            }}
+            title={signalsPanelExpanded ? 'Collapse signals panel' : 'Expand signals panel'}
+          >
+            <span>Signals (5m, 15m, 1h, 4h) — from API</span>
+            <span style={{ fontSize: 18 }}>{signalsPanelExpanded ? '▼ Collapse' : '▶ Expand'}</span>
+          </button>
+          {signalsPanelExpanded && (
+          <div style={{
+            maxHeight: '38vh',
+            overflowY: 'auto',
+            padding: 12,
+          }}>
           <div style={{
             display: 'flex',
             flexWrap: 'wrap',
             gap: 12,
             padding: 12,
-            background: darkMode ? '#1e293b' : '#f1f5f9',
-            borderRadius: 8,
-            border: darkMode ? '1px solid #334155' : '1px solid #e2e8f0',
+            background: darkMode ? '#0f172a' : '#fff',
+            borderRadius: 6,
+            border: darkMode ? '1px solid #475569' : '1px solid #e2e8f0',
           }}>
             {['5m', '15m', '1h', '4h'].map((interval) => {
               const iv = signalsData.intervals[interval];
@@ -3446,6 +3489,8 @@ const LiveTradeViewPage = () => {
               );
             })}
           </div>
+          </div>
+          )}
         </div>
       )}
     </div>
