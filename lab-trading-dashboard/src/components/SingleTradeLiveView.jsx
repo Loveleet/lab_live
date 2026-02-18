@@ -1,9 +1,9 @@
-import React, { useState, useEffect, useRef, useCallback, useMemo } from "react";
+import React, { useState, useEffect, useRef, useCallback, useMemo, useContext } from "react";
 import { useNavigate } from "react-router-dom";
 import { Play, Settings, Square, Shield, Crosshair, LayoutGrid } from "lucide-react";
 import { formatTradeData } from "./TableView";
 import { LogoutButton, UserEmailDisplay } from "../auth";
-import { ProfilePanel } from "../ThemeProfileContext";
+import { ThemeProfileContext, ProfilePanel } from "../ThemeProfileContext";
 import { API_BASE_URL, api, apiFetch } from "../config";
 
 const REFRESH_INTERVAL_KEY = "refresh_app_main_intervalSec";
@@ -2589,6 +2589,8 @@ function LiveTradeChartSection({
 
 export default function SingleTradeLiveView({ formattedRow: initialFormattedRow, rawTrade: initialRawTrade }) {
   const navigate = useNavigate();
+  const themeProfile = useContext(ThemeProfileContext);
+  const activeProfileId = themeProfile?.activeThemeProfileId ?? themeProfile?.activeProfile?.id;
   const [formattedRow, setFormattedRow] = useState(initialFormattedRow || {});
   const [rawTrade, setRawTrade] = useState(initialRawTrade ?? null);
   // When rawTrade exists, use formatTradeData to show ALL fields from the trade (same as TableView)
@@ -2826,16 +2828,18 @@ export default function SingleTradeLiveView({ formattedRow: initialFormattedRow,
     return "intervalWise";
   });
 
-  // Persist a single UI setting to cloud and localStorage (used below and in layout useEffects)
+  // Persist a single UI setting to cloud and localStorage (per current theme profile)
   const saveUiSetting = useCallback((key, value) => {
     try {
       localStorage.setItem(key, typeof value === "string" ? value : JSON.stringify(value));
     } catch {}
     const url = api("/api/ui-settings");
+    const body = { key, value };
+    if (activeProfileId != null) body.theme_profile_id = activeProfileId;
     fetch(url, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ key, value }),
+      body: JSON.stringify(body),
     })
       .then((res) => {
         if (!res.ok) {
@@ -2851,7 +2855,7 @@ export default function SingleTradeLiveView({ formattedRow: initialFormattedRow,
       .catch((err) => {
         console.warn("[UI Settings] Save failed for", key, ":", err?.message || err);
       });
-  }, []);
+  }, [activeProfileId]);
 
   useEffect(() => {
     localStorage.setItem(INFO_SPLIT_KEY, String(infoSplitPercent));
@@ -2862,10 +2866,12 @@ export default function SingleTradeLiveView({ formattedRow: initialFormattedRow,
     saveUiSetting(SIGNALS_VIEW_MODE_KEY, signalsTableViewMode);
   }, [signalsTableViewMode, saveUiSetting]);
 
-  // Load UI settings from cloud so layout persists when using GitHub Pages / different browser
+  // Load UI settings from cloud for current theme profile; refetch when profile changes so layout/settings follow the selected profile
   useEffect(() => {
     let cancelled = false;
-    const url = api("/api/ui-settings");
+    const q = activeProfileId != null ? `?theme_profile_id=${activeProfileId}` : "";
+    const url = api("/api/ui-settings") + q;
+    serverSettingsAppliedRef.current = false;
     fetch(url)
       .then((res) => {
         if (!res.ok) {
@@ -2889,7 +2895,7 @@ export default function SingleTradeLiveView({ formattedRow: initialFormattedRow,
             map[s.key] = val;
           }
         });
-        if (list.length > 0) console.debug("[UI Settings] Loaded from server:", Object.keys(map));
+        if (list.length > 0) console.debug("[UI Settings] Loaded from server (profileId=" + activeProfileId + "):", Object.keys(map));
         setServerUiSettings(map);
       })
       .catch((err) => {
@@ -2897,7 +2903,7 @@ export default function SingleTradeLiveView({ formattedRow: initialFormattedRow,
         setServerUiSettings({});
       });
     return () => { cancelled = true; };
-  }, []);
+  }, [activeProfileId]);
 
   // Apply server settings once when loaded (overrides localStorage for remote consistency)
   useEffect(() => {
