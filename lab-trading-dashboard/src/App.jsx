@@ -1527,8 +1527,9 @@ useEffect(() => {
       try {
         const v = parseSetting(map.chartSettings);
         if (v && typeof v === "object") {
-          setChartSettings((prev) => ({ layout: 3, showRSI: true, showVolume: true, ...prev, ...v }));
-          try { localStorage.setItem("chartSettings", JSON.stringify({ ...v })); } catch (_) {}
+          const merged = { layout: 3, showRSI: true, showVolume: true, ...v };
+          setChartSettings(merged);
+          try { localStorage.setItem("chartSettings", JSON.stringify(merged)); } catch (_) {}
         }
       } catch (_) {}
     }
@@ -1537,27 +1538,27 @@ useEffect(() => {
       try {
         const v = parseSetting(map.soundSettings);
         if (v && typeof v === "object") {
-          setSoundSettings((prev) => ({
+          const merged = {
             enabled: false, volume: 0.7, mode: "tts", announceActions: { BUY: true, SELL: true }, announceSignals: {}, audioUrls: { BUY: "", SELL: "" }, newTradeWindowHours: 4,
-            ...prev, ...v,
-          }));
-          try { localStorage.setItem("soundSettings", JSON.stringify(v)); } catch (_) {}
+            ...v,
+          };
+          setSoundSettings(merged);
+          try { localStorage.setItem("soundSettings", JSON.stringify(merged)); } catch (_) {}
         }
       } catch (_) {}
     }
     settingsAppliedOnceRef.current = true;
   }, [parseSetting]);
 
-  // Persist all settings to server (per profile) when they change; also keep localStorage in sync
+  // Persist all settings to server when logged in (per profile), and always keep a copy in localStorage
   const syncToServerAndLocal = useCallback((key, value) => {
-    if (!themeProfileRef.current) return;
     const str = typeof value === "string" ? value : JSON.stringify(value);
-    themeProfileRef.current.saveSetting(key, str);
     try {
       if (key === "theme") localStorage.setItem("theme", value);
       else if (key === "soundSettings") localStorage.setItem("soundSettings", typeof value === "string" ? value : JSON.stringify(value));
       else localStorage.setItem(key, str);
     } catch (_) {}
+    if (themeProfileRef.current) themeProfileRef.current.saveSetting(key, str);
   }, []);
 
   useEffect(() => {
