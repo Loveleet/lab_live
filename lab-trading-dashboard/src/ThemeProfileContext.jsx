@@ -181,9 +181,18 @@ export function ThemeProfileProvider({ children, isLoggedIn, onSettingsLoaded, t
     const profileId = activeProfile.id;
     let cancelled = false;
     refetchSettings(profileId).then(({ settings }) => {
-      if (!cancelled) {
-        log("apply server settings to app", settings.length, "keys", "profileId=", profileId);
-        onSettingsLoaded(settings);
+      if (cancelled) return;
+      log("apply server settings to app", settings.length, "keys", "profileId=", profileId);
+      onSettingsLoaded(settings);
+      // Sync document theme immediately so Single Trade / any screen using dark: classes updates when profile changes
+      const themeEntry = settings.find((s) => s && s.key === "theme");
+      const themeVal = themeEntry?.value;
+      if (themeVal !== undefined && themeVal !== null) {
+        const isDark = themeVal === "dark" || themeVal === true || themeVal === "true" || themeVal === 1;
+        try {
+          document.documentElement.classList.toggle("dark", isDark);
+          localStorage.setItem("theme", isDark ? "dark" : "light");
+        } catch (_) {}
       }
     });
     return () => { cancelled = true; };
