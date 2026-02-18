@@ -89,8 +89,8 @@ export function ThemeProfileProvider({ children, isLoggedIn, onSettingsLoaded, t
     [profiles]
   );
 
-  const refetchSettings = useCallback(async () => {
-    const themeProfileId = activeProfile?.id;
+  const refetchSettings = useCallback(async (profileIdOverride) => {
+    const themeProfileId = profileIdOverride !== undefined ? profileIdOverride : activeProfile?.id;
     const q = themeProfileId != null ? `?theme_profile_id=${themeProfileId}` : "";
     const url = api("/api/ui-settings") + q;
     const res = await fetch(url, { credentials: "include" });
@@ -100,7 +100,7 @@ export function ThemeProfileProvider({ children, isLoggedIn, onSettingsLoaded, t
     }
     const data = await res.json().catch(() => ({}));
     const settings = data?.settings || [];
-    log("refetchSettings", settings.length, "keys", settings.slice(0, 10).map((s) => s.key));
+    log("refetchSettings", settings.length, "profileId=", themeProfileId, "keys", settings.slice(0, 10).map((s) => s.key));
     return { settings };
   }, [activeProfile?.id]);
 
