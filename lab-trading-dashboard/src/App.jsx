@@ -125,6 +125,7 @@ const App = () => {
   const [showStayLoggedInPrompt, setShowStayLoggedInPrompt] = useState(false);
   const loggedInAtRef = useRef(0);
   const themeProfileRef = useRef(null);
+  const settingsAppliedOnceRef = useRef(false);
 
   const [superTrendData, setSuperTrendData] = useState([]);
   const [emaTrends, setEmaTrends] = useState(null);
@@ -1399,13 +1400,37 @@ useEffect(() => {
     if (!Array.isArray(settings)) return;
     const map = {};
     settings.forEach((s) => { if (s && s.key != null) map[s.key] = s.value; });
-    // Always apply theme so switching profile shows a change (use default if not set)
+    // Theme, font, layout
     setDarkMode(map.theme !== undefined ? map.theme === "dark" : (window.matchMedia?.("(prefers-color-scheme: dark)")?.matches ?? true));
     const fontNum = map.fontSizeLevel !== undefined ? Number(map.fontSizeLevel) : NaN;
     if (!Number.isNaN(fontNum)) setFontSizeLevel(fontNum);
     const layoutNum = map.layoutOption !== undefined ? Number(map.layoutOption) : NaN;
     if (!Number.isNaN(layoutNum)) setLayoutOption(layoutNum);
+    // Live filter (true/false checkboxes) and related — so switching profile updates filters
+    if (map.liveFilter !== undefined) {
+      try {
+        const v = typeof map.liveFilter === "string" ? JSON.parse(map.liveFilter) : map.liveFilter;
+        if (v && typeof v === "object" && ("true" in v || "false" in v)) setLiveFilter(v);
+      } catch (_) {}
+    }
+    if (map.liveRadioMode !== undefined) setLiveRadioMode(map.liveRadioMode === true || map.liveRadioMode === "true" || map.liveRadioMode === "1");
+    if (map.filterVisible !== undefined) setFilterVisible(map.filterVisible === true || map.filterVisible === "true" || map.filterVisible === "1");
+    settingsAppliedOnceRef.current = true;
   }, []);
+
+  // Persist live filter and related to server (per profile) so switching profile restores them
+  useEffect(() => {
+    if (!settingsAppliedOnceRef.current || !themeProfileRef.current) return;
+    themeProfileRef.current.saveSetting("liveFilter", JSON.stringify(liveFilter));
+  }, [liveFilter]);
+  useEffect(() => {
+    if (!settingsAppliedOnceRef.current || !themeProfileRef.current) return;
+    themeProfileRef.current.saveSetting("liveRadioMode", liveRadioMode ? "true" : "false");
+  }, [liveRadioMode]);
+  useEffect(() => {
+    if (!settingsAppliedOnceRef.current || !themeProfileRef.current) return;
+    themeProfileRef.current.saveSetting("filterVisible", filterVisible ? "true" : "false");
+  }, [filterVisible]);
 
   // Sync dark mode with localStorage changes (e.g., from reports or another tab)
   useEffect(() => {
