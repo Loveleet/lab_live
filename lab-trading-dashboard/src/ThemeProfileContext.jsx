@@ -351,7 +351,7 @@ export function ProfilePanel({ buttonClassName = "" }) {
         className={buttonClassName || "absolute right-56 top-3 z-20 px-3 py-2 rounded-full bg-white/80 dark:bg-gray-800/80 shadow hover:scale-105 transition-all text-sm font-semibold text-gray-700 dark:text-gray-200"}
         title="Profile & themes"
       >
-        Profile
+        {activeProfile?.name ?? "Profile"}
       </button>
       {open && (
         <div className="absolute right-0 top-full mt-2 z-50 w-72 rounded-xl border border-gray-200 dark:border-gray-600 bg-white dark:bg-gray-900 shadow-xl py-3 px-4">
