@@ -3,7 +3,7 @@ import { useNavigate } from "react-router-dom";
 import { Play, Settings, Square, Shield, Crosshair, LayoutGrid } from "lucide-react";
 import { formatTradeData } from "./TableView";
 import { LogoutButton, UserEmailDisplay } from "../auth";
-import { ProfilePanel } from "./ThemeProfileContext";
+import { ProfilePanel } from "../ThemeProfileContext";
 import { API_BASE_URL, api, apiFetch } from "../config";
 
 const REFRESH_INTERVAL_KEY = "refresh_app_main_intervalSec";
@@ -3324,7 +3324,7 @@ export default function SingleTradeLiveView({ formattedRow: initialFormattedRow,
 
   return (
     <div className="fixed inset-0 flex flex-col bg-[#f5f6fa] dark:bg-[#0f0f0f] text-[#222] dark:text-white overflow-hidden w-full">
-      <div className="flex-none flex items-center justify-between gap-2 px-3 sm:px-4 py-2 bg-[#181818] text-white border-b border-gray-700 shadow-md">
+      <div className="flex-none flex items-center justify-between gap-2 px-3 sm:px-4 py-2 bg-[#181818] text-white border-b border-gray-700 shadow-md flex-wrap">
         <button
           type="button"
           onClick={() => navigate(-1)}
@@ -3332,10 +3332,11 @@ export default function SingleTradeLiveView({ formattedRow: initialFormattedRow,
         >
           ← Back
         </button>
-        <span className="font-semibold text-base sm:text-lg truncate">Live Trade — {stripHtml(row.Pair) || "N/A"}</span>
-        <div className="flex items-center gap-2 shrink-0">
+        <span className="font-semibold text-base sm:text-lg truncate min-w-0">Live Trade — {stripHtml(row.Pair) || "N/A"}</span>
+        <div className="flex items-center gap-2 shrink-0 flex-wrap justify-end">
+          <ProfilePanel buttonClassName="px-3 py-1.5 rounded-lg bg-white/10 hover:bg-white/20 text-white text-sm font-semibold shrink-0" />
           <UserEmailDisplay />
-          <LogoutButton className="px-3 py-1.5 rounded-lg bg-red-600 hover:bg-red-700 text-white text-sm font-semibold" />
+          <LogoutButton className="px-3 py-1.5 rounded-lg bg-red-600 hover:bg-red-700 text-white text-sm font-semibold shrink-0" />
           <button
             type="button"
             onClick={() => setShowLayoutSettings(true)}
