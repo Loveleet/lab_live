@@ -199,18 +199,34 @@ const App = () => {
     localStorage.setItem("fontSizeLevel", fontSizeLevel);
   }, [fontSizeLevel]);
 
-  // Check session on mount
+  // Check session on mount (with timeout so we never stay stuck on "Checking session..." if API is slow/missing)
+  const SESSION_CHECK_TIMEOUT_MS = 10000;
   useEffect(() => {
-    checkSession().then((data) => {
-      setLoggedIn(!!data);
-      if (data) loggedInAtRef.current = Date.now();
-      setUser(data?.user ?? null);
+    let cancelled = false;
+    const timeoutId = setTimeout(() => {
+      if (cancelled) return;
       setAuthChecking(false);
-    }).catch(() => {
       setLoggedIn(false);
       setUser(null);
-      setAuthChecking(false);
-    });
+    }, SESSION_CHECK_TIMEOUT_MS);
+    checkSession()
+      .then((data) => {
+        if (cancelled) return;
+        setLoggedIn(!!data);
+        if (data) loggedInAtRef.current = Date.now();
+        setUser(data?.user ?? null);
+        setAuthChecking(false);
+      })
+      .catch(() => {
+        if (cancelled) return;
+        setLoggedIn(false);
+        setUser(null);
+        setAuthChecking(false);
+      })
+      .finally(() => {
+        clearTimeout(timeoutId);
+      });
+    return () => { cancelled = true; clearTimeout(timeoutId); };
   }, []);
 
   // When user logs in (e.g. from LoginPage), set timer for "Stay logged in?" prompt
