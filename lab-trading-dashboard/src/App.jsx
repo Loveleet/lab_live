@@ -1421,7 +1421,7 @@ useEffect(() => {
     return v;
   }, []);
 
-  // Defaults for each setting (so when we switch profile we reset to these, then apply only what that profile has saved)
+  // Defaults for each setting
   const DEFAULT_SIGNALS = useMemo(() => ({
     "2POLE_IN5LOOP": true, "IMACD": true, "2POLE_Direct_Signal": true,
     "HIGHEST SWING HIGH": true, "LOWEST SWING LOW": true, "NORMAL SWING HIGH": true, "NORMAL SWING LOW": true,
@@ -1765,7 +1765,7 @@ useEffect(() => {
                   initialAutoOn={true}
                 />
               </div>
-              {/* Right side: empty (Profile, Sound, Theme are in the global bar above) */}
+              {/* Right side: empty (Sound, Theme, Logout are in the global bar above) */}
               <div className="absolute right-4 top-3 z-20" />
               {/* SVG Graph Background (animated) */}
               <AnimatedGraphBackground width={400} height={48} opacity={0.4} />
