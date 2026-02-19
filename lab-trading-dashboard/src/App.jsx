@@ -1536,17 +1536,6 @@ useEffect(() => {
     fetchTrades();
   }, []);
 
-  if (authChecking) {
-    return (
-      <div className="min-h-screen flex items-center justify-center bg-[#0f0f0f]">
-        <div className="text-gray-400">Checking session…</div>
-      </div>
-    );
-  }
-  if (!isLoggedIn) {
-    return <LoginPage onLogin={() => setLoggedIn(true)} />;
-  }
-
   const doLogout = useCallback(async () => {
     await logoutApi();
     setLoggedIn(false);
@@ -1572,7 +1561,7 @@ useEffect(() => {
     triggerLogout,
   }), [user, doLogout, triggerLogout]);
 
-  const handleStayLoggedIn = async () => {
+  const handleStayLoggedIn = useCallback(async () => {
     const ok = await extendSession();
     if (ok) {
       loggedInAtRef.current = Date.now();
@@ -1581,7 +1570,13 @@ useEffect(() => {
       setLoggedIn(false);
       setShowStayLoggedInPrompt(false);
     }
-  };
+  }, []);
+
+  const formatCountdown = useCallback((sec) => {
+    const m = Math.floor(sec / 60);
+    const s = sec % 60;
+    return `${m}:${s < 10 ? "0" : ""}${s}`;
+  }, []);
 
   // Logout countdown: when popup is open, tick every second
   useEffect(() => {
@@ -1615,11 +1610,16 @@ useEffect(() => {
     }
   }, [sessionMenuOpen]);
 
-  const formatCountdown = (sec) => {
-    const m = Math.floor(sec / 60);
-    const s = sec % 60;
-    return `${m}:${s < 10 ? "0" : ""}${s}`;
-  };
+  if (authChecking) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-[#0f0f0f]">
+        <div className="text-gray-400">Checking session…</div>
+      </div>
+    );
+  }
+  if (!isLoggedIn) {
+    return <LoginPage onLogin={() => setLoggedIn(true)} />;
+  }
 
   return (
       <AuthContext.Provider value={authContextValue}>
