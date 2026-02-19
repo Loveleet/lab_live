@@ -88,11 +88,6 @@ const BINANCE_COLUMNS_VISIBILITY_KEY = "singleTradeLiveView_binanceColumnsVisibi
 const SECTION_IDS = ["information", "binanceData", "chart"];
 const SECTION_LABELS = { information: "Information", binanceData: "Binance Data", chart: "Chart" };
 
-const DEBUG_UI_SETTINGS = true; // set false to disable profile/settings debug logs
-function debugLog(...args) {
-  if (DEBUG_UI_SETTINGS && typeof console !== "undefined") console.log("[LiveView UI Settings]", ...args);
-}
-
 const INTERVALS = ["5m", "15m", "1h", "4h"];
 // Display order: current first, then prev, then prior (API summary is [prior, prev, current] = index 0,1,2)
 const ROW_LABELS = ["current_row", "prev row", "prior row"];
@@ -2595,8 +2590,6 @@ function LiveTradeChartSection({
 export default function SingleTradeLiveView({ formattedRow: initialFormattedRow, rawTrade: initialRawTrade }) {
   const navigate = useNavigate();
   const themeProfile = useContext(ThemeProfileContext);
-  const activeProfileIdRaw = themeProfile?.activeThemeProfileId ?? themeProfile?.activeProfile?.id;
-  const activeProfileId = activeProfileIdRaw != null ? Number(activeProfileIdRaw) : null;
   const [formattedRow, setFormattedRow] = useState(initialFormattedRow || {});
   const [rawTrade, setRawTrade] = useState(initialRawTrade ?? null);
   // When rawTrade exists, use formatTradeData to show ALL fields from the trade (same as TableView)
@@ -2765,10 +2758,6 @@ export default function SingleTradeLiveView({ formattedRow: initialFormattedRow,
     } catch {}
     return null;
   });
-  // Store fetched settings with the profile id they belong to (in state so apply effect re-runs when new data arrives)
-  const [serverUiSettingsForProfile, setServerUiSettingsForProfile] = useState(null); // { profileId, settings } | null
-  // Only allow POST after we've applied this profile's settings (stops overwriting new profile with old profile's state when switching)
-  const lastAppliedProfileIdRef = useRef(null);
   const orderedKeys = fieldOrder && fieldOrder.length
     ? [...fieldOrder.filter((k) => allKeys.includes(k)), ...allKeys.filter((k) => !fieldOrder.includes(k))]
     : allKeys;
@@ -2836,142 +2825,19 @@ export default function SingleTradeLiveView({ formattedRow: initialFormattedRow,
     return "intervalWise";
   });
 
-  // Persist a single UI setting to cloud and localStorage (per current theme profile). Only POST when we have applied this profile's settings (so switching profile doesn't overwrite the new profile with old state).
+  // Persist UI settings to localStorage only
   const saveUiSetting = useCallback((key, value) => {
     try {
       localStorage.setItem(key, typeof value === "string" ? value : JSON.stringify(value));
-    } catch {}
-    if (activeProfileId == null) {
-      debugLog("save SKIP (no profile)", key);
-      return;
-    }
-    const lastApplied = lastAppliedProfileIdRef.current != null ? Number(lastAppliedProfileIdRef.current) : null;
-    if (lastApplied !== activeProfileId) {
-      debugLog("save SKIP (profile not applied yet, would overwrite)", "key=", key, "activeProfileId=", activeProfileId, "lastApplied=", lastApplied);
-      return;
-    }
-    const url = api("/api/ui-settings");
-    const body = { key, value, theme_profile_id: activeProfileId };
-    debugLog("save POST", key, "theme_profile_id=", activeProfileId);
-    fetch(url, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(body),
-    })
-      .then((res) => {
-        if (!res.ok) {
-          return res.json().then((d) => { throw new Error(d?.error || res.statusText); });
-        }
-        return res.json();
-      })
-      .then(() => {
-        if (DEBUG_UI_SETTINGS && (key === SECTION_ORDER_KEY || key === INFO_SPLIT_KEY)) debugLog("save OK", key);
-      })
-      .catch((err) => {
-        console.warn("[UI Settings] Save failed for", key, ":", err?.message || err);
-      });
-  }, [activeProfileId]);
+    } catch (_) {}
+  }, []);
 
   useEffect(() => {
-    localStorage.setItem(INFO_SPLIT_KEY, String(infoSplitPercent));
     saveUiSetting(INFO_SPLIT_KEY, infoSplitPercent);
   }, [infoSplitPercent, saveUiSetting]);
   useEffect(() => {
-    localStorage.setItem(SIGNALS_VIEW_MODE_KEY, signalsTableViewMode);
     saveUiSetting(SIGNALS_VIEW_MODE_KEY, signalsTableViewMode);
   }, [signalsTableViewMode, saveUiSetting]);
-
-  // Load UI settings from cloud for current theme profile; refetch when profile changes so layout/settings follow the selected profile
-  useEffect(() => {
-    let cancelled = false;
-    const profileIdForFetch = activeProfileId;
-    debugLog("load FETCH start", "profileId=", profileIdForFetch);
-    const q = profileIdForFetch != null ? `?theme_profile_id=${profileIdForFetch}` : "";
-    const url = api("/api/ui-settings") + q;
-    fetch(url)
-      .then((res) => {
-        if (!res.ok) {
-          console.warn("[UI Settings] GET failed:", res.status, res.statusText);
-          return res.json().then((d) => { throw new Error(d?.error || res.statusText); });
-        }
-        return res.json();
-      })
-      .then((data) => {
-        if (cancelled) return;
-        const list = Array.isArray(data?.settings) ? data.settings : [];
-        const map = {};
-        list.forEach((s) => {
-          if (s && s.key != null) {
-            let val = s.value;
-            if (typeof val === "string") {
-              try {
-                val = JSON.parse(val);
-              } catch (_) { /* keep string */ }
-            }
-            map[s.key] = val;
-          }
-        });
-        const keys = Object.keys(map);
-        debugLog("load FETCH done", "profileId=", profileIdForFetch, "keys=", keys.length, keys.slice(0, 8));
-        const pid = profileIdForFetch != null ? Number(profileIdForFetch) : null;
-        setServerUiSettingsForProfile(pid != null ? { profileId: pid, settings: map } : { profileId: null, settings: map });
-      })
-      .catch((err) => {
-        console.warn("[UI Settings] Load error:", err?.message || err);
-        if (!cancelled) {
-          debugLog("load FETCH error", "profileId=", profileIdForFetch);
-          const pid = profileIdForFetch != null ? Number(profileIdForFetch) : null;
-          setServerUiSettingsForProfile(pid != null ? { profileId: pid, settings: {} } : { profileId: null, settings: {} });
-        }
-      });
-    return () => { cancelled = true; };
-  }, [activeProfileId]);
-
-  // Apply server settings when we have data for the current profile (state holds { profileId, settings } so every profile switch that fetches new data triggers apply)
-  useEffect(() => {
-    if (serverUiSettingsForProfile == null) {
-      debugLog("apply SKIP", "no data");
-      return;
-    }
-    const dataProfileId = serverUiSettingsForProfile.profileId != null ? Number(serverUiSettingsForProfile.profileId) : null;
-    if (dataProfileId !== activeProfileId) {
-      debugLog("apply SKIP", "dataFor=", dataProfileId, "currentProfile=", activeProfileId);
-      return;
-    }
-    lastAppliedProfileIdRef.current = activeProfileId;
-    const serverUiSettings = serverUiSettingsForProfile.settings;
-    const keys = Object.keys(serverUiSettings);
-    debugLog("apply OK", "profileId=", activeProfileId, "keys=", keys.length, keys.slice(0, 6));
-    const sectionArr = serverUiSettings[SECTION_ORDER_KEY];
-    if (Array.isArray(sectionArr) && sectionArr.length === SECTION_IDS.length && SECTION_IDS.every((id) => sectionArr.includes(id))) {
-      setSectionOrder(sectionArr);
-    } else {
-      setSectionOrder([...SECTION_IDS]);
-    }
-    if (Array.isArray(serverUiSettings[INFO_FIELD_ORDER_KEY]) && serverUiSettings[INFO_FIELD_ORDER_KEY].length) {
-      setFieldOrder(serverUiSettings[INFO_FIELD_ORDER_KEY]);
-    }
-    if (Array.isArray(serverUiSettings[INFO_FIELDS_KEY])) {
-      setVisibleKeys(new Set(serverUiSettings[INFO_FIELDS_KEY]));
-    }
-    if (typeof serverUiSettings[INFO_SPLIT_KEY] === "number" || (typeof serverUiSettings[INFO_SPLIT_KEY] === "string" && serverUiSettings[INFO_SPLIT_KEY] !== "")) {
-      const n = parseInt(serverUiSettings[INFO_SPLIT_KEY], 10);
-      if (!Number.isNaN(n)) setInfoSplitPercent(Math.max(20, Math.min(80, n)));
-    }
-    if (serverUiSettings[SIGNALS_VIEW_MODE_KEY] === "rowWise" || serverUiSettings[SIGNALS_VIEW_MODE_KEY] === "intervalWise") {
-      setSignalsTableViewMode(serverUiSettings[SIGNALS_VIEW_MODE_KEY]);
-    }
-    const binanceOrder = serverUiSettings[BINANCE_COLUMNS_ORDER_KEY];
-    if (Array.isArray(binanceOrder) && binanceOrder.length) {
-      console.debug("[UI Settings] Applying Binance column order from server:", binanceOrder.length, "columns");
-      setBinanceColumns(binanceOrder);
-    }
-    const binanceVis = serverUiSettings[BINANCE_COLUMNS_VISIBILITY_KEY];
-    if (binanceVis && typeof binanceVis === "object" && !Array.isArray(binanceVis)) {
-      console.debug("[UI Settings] Applying Binance column visibility from server");
-      setBinanceColumnVisibility(binanceVis);
-    }
-  }, [serverUiSettingsForProfile, activeProfileId]);
 
   // backSplitPercent is no longer used (Binance Data is a single panel now), so we stop updating it.
 
