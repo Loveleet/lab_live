@@ -1422,179 +1422,6 @@ useEffect(() => {
     enabled: false, volume: 0.7, mode: "tts", announceActions: { BUY: true, SELL: true }, announceSignals: {}, audioUrls: { BUY: "", SELL: "" }, newTradeWindowHours: 4,
   }), []);
 
-  // Apply server-backed settings when theme profile loads or user switches profile (server = source of truth; sync copy to localStorage)
-  const applyServerSettings = useCallback((settings) => {
-    if (!Array.isArray(settings)) return;
-    const map = {};
-    settings.forEach((s) => { if (s && s.key != null) map[s.key] = s.value; });
-    const toBool = (x) => x === true || x === "true" || x === "1";
-
-    // Reset all synced state to defaults first (except theme — we only set theme from server so we don't overwrite user's choice with system preference)
-    setFontSizeLevel(8);
-    setLayoutOption(3);
-    setLiveFilter(DEFAULT_LIVE_FILTER);
-    setLiveRadioMode(false);
-    setFilterVisible(true);
-    setMachineRadioMode(false);
-    setMachineToggleAll(true);
-    setSelectedSignals(DEFAULT_SIGNALS);
-    setSignalToggleAll(true);
-    setSelectedMachines({});
-    setSelectedIntervals(DEFAULT_INTERVALS);
-    setSelectedActions({ BUY: true, SELL: true });
-    setFromDate(null);
-    setToDate(null);
-    setChartSettings(DEFAULT_CHART);
-    setSoundSettings(DEFAULT_SOUND);
-    try {
-      localStorage.setItem("fontSizeLevel", "8");
-      localStorage.setItem("layoutOption", "3");
-      localStorage.setItem("liveFilter", JSON.stringify(DEFAULT_LIVE_FILTER));
-      localStorage.setItem("liveRadioMode", "false");
-      localStorage.setItem("filterVisible", "true");
-      localStorage.setItem("machineRadioMode", "false");
-      localStorage.setItem("machineToggleAll", "true");
-      localStorage.setItem("selectedSignals", JSON.stringify(DEFAULT_SIGNALS));
-      localStorage.setItem("selectedMachines", "{}");
-      localStorage.setItem("selectedIntervals", JSON.stringify(DEFAULT_INTERVALS));
-      localStorage.setItem("selectedActions", JSON.stringify({ BUY: true, SELL: true }));
-      localStorage.setItem("chartSettings", JSON.stringify(DEFAULT_CHART));
-      localStorage.setItem("soundSettings", JSON.stringify(DEFAULT_SOUND));
-    } catch (_) {}
-
-    // Now apply whatever this profile has saved (overrides defaults)
-    // Theme: only apply when server sent one — never overwrite with system preference so user's dark choice sticks
-    if (map.theme !== undefined) {
-      const themeDark = map.theme === "dark";
-      setDarkMode(themeDark);
-      try { localStorage.setItem("theme", themeDark ? "dark" : "light"); } catch (_) {}
-    }
-    // Font, layout
-    const fontNum = map.fontSizeLevel !== undefined ? Number(map.fontSizeLevel) : NaN;
-    if (!Number.isNaN(fontNum)) {
-      setFontSizeLevel(fontNum);
-      try { localStorage.setItem("fontSizeLevel", String(fontNum)); } catch (_) {}
-    }
-    const layoutNum = map.layoutOption !== undefined ? Number(map.layoutOption) : NaN;
-    if (!Number.isNaN(layoutNum)) {
-      setLayoutOption(layoutNum);
-      try { localStorage.setItem("layoutOption", String(layoutNum)); } catch (_) {}
-    }
-    // Live filter and related
-    if (map.liveFilter !== undefined) {
-      try {
-        const v = parseSetting(map.liveFilter);
-        if (v && typeof v === "object" && ("true" in v || "false" in v)) {
-          setLiveFilter(v);
-          localStorage.setItem("liveFilter", JSON.stringify(v));
-        }
-      } catch (_) {}
-    }
-    if (map.liveRadioMode !== undefined) {
-      setLiveRadioMode(toBool(map.liveRadioMode));
-      try { localStorage.setItem("liveRadioMode", toBool(map.liveRadioMode) ? "true" : "false"); } catch (_) {}
-    }
-    if (map.filterVisible !== undefined) {
-      setFilterVisible(toBool(map.filterVisible));
-      try { localStorage.setItem("filterVisible", toBool(map.filterVisible) ? "true" : "false"); } catch (_) {}
-    }
-    // Machine/signal toggles
-    if (map.machineRadioMode !== undefined) {
-      setMachineRadioMode(toBool(map.machineRadioMode));
-      try { localStorage.setItem("machineRadioMode", JSON.stringify(toBool(map.machineRadioMode))); } catch (_) {}
-    }
-    if (map.machineToggleAll !== undefined) {
-      setMachineToggleAll(toBool(map.machineToggleAll));
-      try { localStorage.setItem("machineToggleAll", JSON.stringify(toBool(map.machineToggleAll))); } catch (_) {}
-    }
-    // Selected signals (merge with defaults so new keys appear)
-    if (map.selectedSignals !== undefined) {
-      try {
-        const v = parseSetting(map.selectedSignals);
-        if (v && typeof v === "object") {
-          const merged = { ...DEFAULT_SIGNALS, ...v };
-          setSelectedSignals(merged);
-          const allSelected = Object.values(merged).every((val) => val === true);
-          setSignalToggleAll(!allSelected);
-          localStorage.setItem("selectedSignals", JSON.stringify(merged));
-        }
-      } catch (_) {}
-    }
-    // Selected machines (object)
-    if (map.selectedMachines !== undefined) {
-      try {
-        const v = parseSetting(map.selectedMachines);
-        if (v && typeof v === "object") {
-          setSelectedMachines(v);
-          localStorage.setItem("selectedMachines", JSON.stringify(v));
-        }
-      } catch (_) {}
-    }
-    // Selected intervals
-    if (map.selectedIntervals !== undefined) {
-      try {
-        const v = parseSetting(map.selectedIntervals);
-        if (v && typeof v === "object") {
-          const merged = { ...DEFAULT_INTERVALS, ...v };
-          setSelectedIntervals(merged);
-          localStorage.setItem("selectedIntervals", JSON.stringify(merged));
-        }
-      } catch (_) {}
-    }
-    // Selected actions
-    if (map.selectedActions !== undefined) {
-      try {
-        const v = parseSetting(map.selectedActions);
-        if (v && typeof v === "object") {
-          const merged = { BUY: true, SELL: true, ...v };
-          setSelectedActions(merged);
-          localStorage.setItem("selectedActions", JSON.stringify(merged));
-        }
-      } catch (_) {}
-    }
-    // Date range
-    if (map.fromDate !== undefined && map.fromDate != null && map.fromDate !== "") {
-      const d = moment(map.fromDate);
-      if (d.isValid()) {
-        setFromDate(d);
-        try { localStorage.setItem("fromDate", d.toISOString()); } catch (_) {}
-      }
-    }
-    if (map.toDate !== undefined && map.toDate != null && map.toDate !== "") {
-      const d = moment(map.toDate);
-      if (d.isValid()) {
-        setToDate(d);
-        try { localStorage.setItem("toDate", d.toISOString()); } catch (_) {}
-      }
-    }
-    // Chart settings
-    if (map.chartSettings !== undefined) {
-      try {
-        const v = parseSetting(map.chartSettings);
-        if (v && typeof v === "object") {
-          const merged = { layout: 3, showRSI: true, showVolume: true, ...v };
-          setChartSettings(merged);
-          try { localStorage.setItem("chartSettings", JSON.stringify(merged)); } catch (_) {}
-        }
-      } catch (_) {}
-    }
-    // Sound settings
-    if (map.soundSettings !== undefined) {
-      try {
-        const v = parseSetting(map.soundSettings);
-        if (v && typeof v === "object") {
-          const merged = {
-            enabled: false, volume: 0.7, mode: "tts", announceActions: { BUY: true, SELL: true }, announceSignals: {}, audioUrls: { BUY: "", SELL: "" }, newTradeWindowHours: 4,
-            ...v,
-          };
-          setSoundSettings(merged);
-          try { localStorage.setItem("soundSettings", JSON.stringify(merged)); } catch (_) {}
-        }
-      } catch (_) {}
-    }
-    settingsAppliedOnceRef.current = true;
-  }, [parseSetting, DEFAULT_SIGNALS, DEFAULT_INTERVALS, DEFAULT_LIVE_FILTER, DEFAULT_CHART, DEFAULT_SOUND]);
-
   // Persist all settings to localStorage only
   const syncToServerAndLocal = useCallback((key, value) => {
     try {
@@ -1605,67 +1432,71 @@ useEffect(() => {
   }, []);
 
   useEffect(() => {
-    if (!settingsAppliedOnceRef.current || !themeProfileRef.current) return;
+    settingsAppliedOnceRef.current = true;
+  }, []);
+
+  useEffect(() => {
+    if (!settingsAppliedOnceRef.current) return;
     syncToServerAndLocal("theme", darkMode ? "dark" : "light");
   }, [darkMode, syncToServerAndLocal]);
   useEffect(() => {
-    if (!settingsAppliedOnceRef.current || !themeProfileRef.current) return;
+    if (!settingsAppliedOnceRef.current) return;
     syncToServerAndLocal("layoutOption", layoutOption);
   }, [layoutOption, syncToServerAndLocal]);
   useEffect(() => {
-    if (!settingsAppliedOnceRef.current || !themeProfileRef.current) return;
+    if (!settingsAppliedOnceRef.current) return;
     syncToServerAndLocal("fontSizeLevel", fontSizeLevel);
   }, [fontSizeLevel, syncToServerAndLocal]);
   useEffect(() => {
-    if (!settingsAppliedOnceRef.current || !themeProfileRef.current) return;
+    if (!settingsAppliedOnceRef.current) return;
     syncToServerAndLocal("liveFilter", liveFilter);
   }, [liveFilter, syncToServerAndLocal]);
   useEffect(() => {
-    if (!settingsAppliedOnceRef.current || !themeProfileRef.current) return;
+    if (!settingsAppliedOnceRef.current) return;
     syncToServerAndLocal("liveRadioMode", liveRadioMode ? "true" : "false");
   }, [liveRadioMode, syncToServerAndLocal]);
   useEffect(() => {
-    if (!settingsAppliedOnceRef.current || !themeProfileRef.current) return;
+    if (!settingsAppliedOnceRef.current) return;
     syncToServerAndLocal("filterVisible", filterVisible ? "true" : "false");
   }, [filterVisible, syncToServerAndLocal]);
   useEffect(() => {
-    if (!settingsAppliedOnceRef.current || !themeProfileRef.current) return;
+    if (!settingsAppliedOnceRef.current) return;
     syncToServerAndLocal("machineRadioMode", machineRadioMode);
   }, [machineRadioMode, syncToServerAndLocal]);
   useEffect(() => {
-    if (!settingsAppliedOnceRef.current || !themeProfileRef.current) return;
+    if (!settingsAppliedOnceRef.current) return;
     syncToServerAndLocal("machineToggleAll", machineToggleAll);
   }, [machineToggleAll, syncToServerAndLocal]);
   useEffect(() => {
-    if (!settingsAppliedOnceRef.current || !themeProfileRef.current) return;
+    if (!settingsAppliedOnceRef.current) return;
     syncToServerAndLocal("selectedSignals", selectedSignals);
   }, [selectedSignals, syncToServerAndLocal]);
   useEffect(() => {
-    if (!settingsAppliedOnceRef.current || !themeProfileRef.current) return;
+    if (!settingsAppliedOnceRef.current) return;
     syncToServerAndLocal("selectedMachines", selectedMachines);
   }, [selectedMachines, syncToServerAndLocal]);
   useEffect(() => {
-    if (!settingsAppliedOnceRef.current || !themeProfileRef.current) return;
+    if (!settingsAppliedOnceRef.current) return;
     syncToServerAndLocal("selectedIntervals", selectedIntervals);
   }, [selectedIntervals, syncToServerAndLocal]);
   useEffect(() => {
-    if (!settingsAppliedOnceRef.current || !themeProfileRef.current) return;
+    if (!settingsAppliedOnceRef.current) return;
     syncToServerAndLocal("selectedActions", selectedActions);
   }, [selectedActions, syncToServerAndLocal]);
   useEffect(() => {
-    if (!settingsAppliedOnceRef.current || !themeProfileRef.current) return;
+    if (!settingsAppliedOnceRef.current) return;
     syncToServerAndLocal("chartSettings", chartSettings);
   }, [chartSettings, syncToServerAndLocal]);
   useEffect(() => {
-    if (!settingsAppliedOnceRef.current || !themeProfileRef.current) return;
+    if (!settingsAppliedOnceRef.current) return;
     syncToServerAndLocal("soundSettings", soundSettings);
   }, [soundSettings, syncToServerAndLocal]);
   useEffect(() => {
-    if (!settingsAppliedOnceRef.current || !themeProfileRef.current) return;
+    if (!settingsAppliedOnceRef.current) return;
     if (fromDate) syncToServerAndLocal("fromDate", fromDate.toISOString());
   }, [fromDate, syncToServerAndLocal]);
   useEffect(() => {
-    if (!settingsAppliedOnceRef.current || !themeProfileRef.current) return;
+    if (!settingsAppliedOnceRef.current) return;
     if (toDate) syncToServerAndLocal("toDate", toDate.toISOString());
   }, [toDate, syncToServerAndLocal]);
 
@@ -1730,7 +1561,6 @@ useEffect(() => {
       <AuthContext.Provider value={authContextValue}>
       <ThemeProfileProvider
         isLoggedIn={isLoggedIn}
-        onSettingsLoaded={applyServerSettings}
         themeProfileRef={themeProfileRef}
       >
       {/* Global bar: Profile, Sound, Theme — fixed height so it never overlaps page buttons; content scrolls below */}

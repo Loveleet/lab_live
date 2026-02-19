@@ -1,9 +1,9 @@
-import React, { useState, useEffect, useRef, useCallback, useMemo, useContext } from "react";
+import React, { useState, useEffect, useRef, useCallback, useMemo } from "react";
 import { useNavigate } from "react-router-dom";
 import { Play, Settings, Square, Shield, Crosshair, LayoutGrid } from "lucide-react";
 import { formatTradeData } from "./TableView";
 import { LogoutButton, UserEmailDisplay } from "../auth";
-import { ThemeProfileContext, ProfilePanel } from "../ThemeProfileContext";
+import { ProfilePanel } from "../ThemeProfileContext";
 import { API_BASE_URL, api, apiFetch } from "../config";
 
 const REFRESH_INTERVAL_KEY = "refresh_app_main_intervalSec";
@@ -2589,7 +2589,6 @@ function LiveTradeChartSection({
 
 export default function SingleTradeLiveView({ formattedRow: initialFormattedRow, rawTrade: initialRawTrade }) {
   const navigate = useNavigate();
-  const themeProfile = useContext(ThemeProfileContext);
   const [formattedRow, setFormattedRow] = useState(initialFormattedRow || {});
   const [rawTrade, setRawTrade] = useState(initialRawTrade ?? null);
   // When rawTrade exists, use formatTradeData to show ALL fields from the trade (same as TableView)

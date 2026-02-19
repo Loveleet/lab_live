@@ -34,7 +34,7 @@ function saveCustomProfiles(list) {
   } catch (_) {}
 }
 
-export function ThemeProfileProvider({ children, isLoggedIn, onSettingsLoaded, themeProfileRef }) {
+export function ThemeProfileProvider({ children, isLoggedIn, themeProfileRef }) {
   const [customProfiles, setCustomProfiles] = useState([]);
   const [activeId, setActiveIdState] = useState(null);
   const profiles = [...BUILTIN_PROFILES, ...customProfiles];
