@@ -2905,19 +2905,21 @@ export default function SingleTradeLiveView({ formattedRow: initialFormattedRow,
     return () => { cancelled = true; };
   }, [activeProfileId]);
 
-  // Apply server settings once when loaded (overrides localStorage for remote consistency)
+  // Apply server settings when loaded for current profile; reset to defaults for keys not in this profile so we don't keep the previous profile's layout
   useEffect(() => {
     if (serverUiSettings == null || serverSettingsAppliedRef.current) return;
     serverSettingsAppliedRef.current = true;
+    const sectionArr = serverUiSettings[SECTION_ORDER_KEY];
+    if (Array.isArray(sectionArr) && sectionArr.length === SECTION_IDS.length && SECTION_IDS.every((id) => sectionArr.includes(id))) {
+      setSectionOrder(sectionArr);
+    } else {
+      setSectionOrder([...SECTION_IDS]);
+    }
     if (Array.isArray(serverUiSettings[INFO_FIELD_ORDER_KEY]) && serverUiSettings[INFO_FIELD_ORDER_KEY].length) {
       setFieldOrder(serverUiSettings[INFO_FIELD_ORDER_KEY]);
     }
     if (Array.isArray(serverUiSettings[INFO_FIELDS_KEY])) {
       setVisibleKeys(new Set(serverUiSettings[INFO_FIELDS_KEY]));
-    }
-    const sectionArr = serverUiSettings[SECTION_ORDER_KEY];
-    if (Array.isArray(sectionArr) && sectionArr.length === SECTION_IDS.length && SECTION_IDS.every((id) => sectionArr.includes(id))) {
-      setSectionOrder(sectionArr);
     }
     if (typeof serverUiSettings[INFO_SPLIT_KEY] === "number" || (typeof serverUiSettings[INFO_SPLIT_KEY] === "string" && serverUiSettings[INFO_SPLIT_KEY] !== "")) {
       const n = parseInt(serverUiSettings[INFO_SPLIT_KEY], 10);
