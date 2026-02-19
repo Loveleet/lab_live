@@ -78,7 +78,7 @@ _MAIN_BINANCE_LOG_FILE = os.path.join(_MAIN_BINANCE_LOG_DIR, "main_binance_error
 
 def _log_error(message, critical=False, exc=None):
     """Write error to main_binance_errors.log. If critical, also send Telegram."""
-    ts = datetime.now(timezone.utc).strftime("%Y-%m-%d %H:%M:%S UTC")
+    ts = datetime.datetime.now(datetime.timezone.utc).strftime("%Y-%m-%d %H:%M:%S UTC")
     line = f"[{ts}] {'CRITICAL' if critical else 'ERROR'} - {message}\n"
     if exc and getattr(exc, "__traceback__", None):
         line += traceback.format_exc() + "\n"
@@ -106,7 +106,7 @@ def _send_telegram_critical(message, exc=None):
     except Exception as e:
         try:
             with open(_MAIN_BINANCE_LOG_FILE, "a", encoding="utf-8") as f:
-                f.write(f"[{datetime.now(timezone.utc)}] Failed to send Telegram: {e}\n")
+                f.write(f"[{datetime.datetime.now(datetime.timezone.utc)}] Failed to send Telegram: {e}\n")
         except Exception:
             pass
 
@@ -420,14 +420,67 @@ try:
             _log_error(f"HedgeModePlaceOrder({symbol} {side} {posSide} {qty}): {e}", critical=True, exc=e)
             return {"ok": False, "message": str(e)}
 
+    def _get_open_algo_orders(symbol):
+        """Get open algo orders for a symbol. Returns list of order dicts (algoId, positionSide, etc.)."""
+        try:
+            resp = client.sign_request("GET", "/fapi/v1/openAlgoOrders", {"symbol": symbol})
+            return resp if isinstance(resp, list) else []
+        except Exception as e:
+            _log_error(f"_get_open_algo_orders({symbol}): {e}", critical=False, exc=e)
+            return []
+
+    def _cancel_algo_order(algo_id):
+        """Cancel a single algo order by algoId. Raises on error."""
+        client.sign_request("DELETE", "/fapi/v1/algoOrder", {"algoId": algo_id})
+
+    def _cancel_algo_orders_for_symbol(symbol, position_side=None):
+        """
+        Cancel all open algo orders for symbol. If position_side is set (LONG/SHORT), only cancel
+        orders matching that positionSide. Avoids -4130 when placing a new stop/take-profit.
+        """
+        orders = _get_open_algo_orders(symbol)
+        for o in orders:
+            algo_id = o.get("algoId")
+            if algo_id is None:
+                continue
+            if position_side is not None:
+                ps = (o.get("positionSide") or "").upper()
+                if ps != position_side.upper():
+                    continue
+            try:
+                _cancel_algo_order(algo_id)
+                time.sleep(0.2)
+            except Exception as e:
+                _log_error(f"_cancel_algo_orders_for_symbol cancel algoId={algo_id}: {e}", critical=False, exc=e)
+
+    def _place_algo_order(symbol, side, position_side, order_type, trigger_price, close_position=True, quantity=None, working_type="CONTRACT_PRICE"):
+        """
+        Place a conditional algo order (STOP_MARKET or TAKE_PROFIT_MARKET) via POST /fapi/v1/algoOrder.
+        Required by Binance for these order types (error -4120 on the regular order endpoint).
+        """
+        params = {
+            "algoType": "CONDITIONAL",
+            "symbol": symbol,
+            "side": side,
+            "positionSide": position_side,
+            "type": order_type,
+            "triggerPrice": trigger_price,
+            "closePosition": "true" if close_position else "false",
+            "workingType": working_type,
+        }
+        if quantity is not None and not close_position:
+            params["quantity"] = quantity
+        return client.sign_request("POST", "/fapi/v1/algoOrder", params)
+
     @retry_um_futures(critical_on_final_failure=True)
     def setStopLoss(symbol, stop_price, side, qty):
         """
         Attach a STOP_MARKET order to close the full position at stop_price.
-        Uses closePosition='true' so quantity is not required.
+        Uses Algo Order API (closePosition='true'). Cancels existing algo orders for symbol first (-4130).
         """
         try:
-            resp2 = client.new_order(symbol=symbol, side=side, type='STOP_MARKET', stopPrice=stop_price, closePosition='true')
+            _cancel_algo_orders_for_symbol(symbol, position_side=None)
+            resp2 = _place_algo_order(symbol, side, "BOTH", "STOP_MARKET", stop_price, close_position=True)
             print("\033[93mStop Loss:", resp2, "\033[0m")
         except Exception as e:
             _log_error(f"setStopLoss({symbol}): {e}", critical=True, exc=e)
@@ -437,10 +490,11 @@ try:
     def setProfit(symbol, take_profit_price, side, qty):
         """
         Attach a TAKE_PROFIT_MARKET order to close the full position at take_profit_price.
-        Uses closePosition='true'.
+        Uses Algo Order API (closePosition='true'). Cancels existing algo orders for symbol first (-4130).
         """
         try:
-            resp3 = client.new_order(symbol=symbol, side=side, type='TAKE_PROFIT_MARKET', stopPrice=take_profit_price, closePosition='true')
+            _cancel_algo_orders_for_symbol(symbol, position_side=None)
+            resp3 = _place_algo_order(symbol, side, "BOTH", "TAKE_PROFIT_MARKET", take_profit_price, close_position=True)
             print("\033[94mTake Profit:", resp3, "\033[0m")
             time.sleep(3)
         except Exception as e:
@@ -451,11 +505,13 @@ try:
     def setHedgeProfit(symbol, take_profit_price, side, posSide):
         """
         Set take-profit for a hedge position (LONG or SHORT) by position side.
+        Uses Algo Order API. Cancels existing algo orders for this symbol/positionSide first (-4130).
         """
         try:
+            _cancel_algo_orders_for_symbol(symbol, position_side=posSide)
             price_precision = get_price_precision(symbol)
             take_profit_price = round(take_profit_price, price_precision)
-            resp3 = client.new_order(symbol=symbol, side=side, positionSide=posSide, type='TAKE_PROFIT_MARKET', stopPrice=take_profit_price, closePosition='true')
+            resp3 = _place_algo_order(symbol, side, posSide, "TAKE_PROFIT_MARKET", take_profit_price, close_position=True)
             print("\033[94mTake Profit:", resp3, "\033[0m")
             time.sleep(3)
         except Exception as e:
@@ -465,16 +521,17 @@ try:
     @retry_um_futures(critical_on_final_failure=True)
     def setHedgeStopLoss(symbol, stop_price, side, posSide):
         """
-        Cancel open orders for symbol then set STOP_MARKET to close the hedge position at stop_price.
+        Cancel open orders and existing algo orders for this symbol/positionSide, then set STOP_MARKET
+        via Algo Order API to close the hedge position at stop_price. Avoids -4130 (existing GTE order).
         """
         try:
-            return {"ok": False, "message": f'Stop Price {stop_price} not set for {symbol}'}
-            # closeOrder(symbol)
-            # price_precision = get_price_precision(symbol)
-            # stop_price = round(stop_price, price_precision)
-            # resp3 = client.new_order(symbol=symbol, side=side, positionSide=posSide, type='STOP_MARKET', stopPrice=stop_price, closePosition='true')
-            # print("\033[94mStop Loss:", resp3, "\033[0m")
-            # time.sleep(3)
+            closeOrder(symbol)
+            _cancel_algo_orders_for_symbol(symbol, position_side=posSide)
+            price_precision = get_price_precision(symbol)
+            stop_price = round(stop_price, price_precision)
+            resp3 = _place_algo_order(symbol, side, posSide, "STOP_MARKET", stop_price, close_position=True)
+            print("\033[94mStop Loss:", resp3, "\033[0m")
+            time.sleep(3)
         except Exception as e:
             _log_error(f"setHedgeStopLoss({symbol}): {e}", critical=True, exc=e)
             return {"ok": False, "message": str(e)}
@@ -482,13 +539,15 @@ try:
     @retry_um_futures(critical_on_final_failure=True)
     def setHedgePartialStopLoss(symbol, stop_price, side, posSide, quantity):
         """
-        Cancel open orders then set a partial STOP_MARKET for the given quantity (closePosition='false').
+        Cancel open orders and existing algo orders for this symbol/positionSide, then set partial
+        STOP_MARKET via Algo Order API (closePosition='false'). Avoids -4130.
         """
         try:
             closeOrder(symbol)
+            _cancel_algo_orders_for_symbol(symbol, position_side=posSide)
             price_precision = get_price_precision(symbol)
             stop_price = round(stop_price, price_precision)
-            resp3 = client.new_order(symbol=symbol, side=side, positionSide=posSide, quantity=quantity, type='STOP_MARKET', stopPrice=stop_price, workingType='MARK_PRICE', closePosition='false')
+            resp3 = _place_algo_order(symbol, side, posSide, "STOP_MARKET", stop_price, close_position=False, quantity=quantity, working_type="MARK_PRICE")
             print("\033[94mStop Loss:", resp3, "\033[0m")
             time.sleep(3)
         except Exception as e:
@@ -570,14 +629,14 @@ try:
     @retry_um_futures(critical_on_final_failure=True)
     def closeOrder(symbol):
         """
-        Cancel all open orders for the given symbol (e.g. TP/SL orders).
-        On success returns Binance response (list/dict). On exception logs and returns
-        {"ok": False, "message": "<error>"} instead of raising.
+        Cancel all open orders for the given symbol (e.g. TP/SL orders), and all open algo
+        orders (stop/take-profit) for that symbol. On success returns Binance response
+        (list/dict). On exception logs and returns {"ok": False, "message": "<error>"}.
         """
         try:
-            # orders = client.cancel_open_orders(symbol=symbol)
-            # return orders
-            return {"ok": False, "message": "FFFFFFFFFFFFFFFFFFFFFFFF"}
+            _cancel_algo_orders_for_symbol(symbol, position_side=None)
+            orders = client.cancel_open_orders(symbol=symbol, recvWindow=6000)
+            return orders
         except ClientError as e:
             _log_error(f"closeOrder({symbol}) ClientError: {e}", critical=True, exc=e)
             return {"ok": False, "message": str(e)}
