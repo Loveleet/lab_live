@@ -2759,9 +2759,8 @@ export default function SingleTradeLiveView({ formattedRow: initialFormattedRow,
     } catch {}
     return null;
   });
-  const serverSettingsAppliedRef = useRef(false);
-  const serverUiSettingsProfileIdRef = useRef(null); // which profile the current serverUiSettings were fetched for
-  const [serverUiSettings, setServerUiSettings] = useState(null);
+  // Store fetched settings with the profile id they belong to (in state so apply effect re-runs when new data arrives)
+  const [serverUiSettingsForProfile, setServerUiSettingsForProfile] = useState(null); // { profileId, settings } | null
   const orderedKeys = fieldOrder && fieldOrder.length
     ? [...fieldOrder.filter((k) => allKeys.includes(k)), ...allKeys.filter((k) => !fieldOrder.includes(k))]
     : allKeys;
@@ -2870,10 +2869,9 @@ export default function SingleTradeLiveView({ formattedRow: initialFormattedRow,
   // Load UI settings from cloud for current theme profile; refetch when profile changes so layout/settings follow the selected profile
   useEffect(() => {
     let cancelled = false;
-    const q = activeProfileId != null ? `?theme_profile_id=${activeProfileId}` : "";
+    const profileIdForFetch = activeProfileId;
+    const q = profileIdForFetch != null ? `?theme_profile_id=${profileIdForFetch}` : "";
     const url = api("/api/ui-settings") + q;
-    serverSettingsAppliedRef.current = false;
-    serverUiSettingsProfileIdRef.current = null; // clear until new fetch completes so we don't apply previous profile's data
     fetch(url)
       .then((res) => {
         if (!res.ok) {
@@ -2897,24 +2895,21 @@ export default function SingleTradeLiveView({ formattedRow: initialFormattedRow,
             map[s.key] = val;
           }
         });
-        if (list.length > 0) console.debug("[UI Settings] Loaded from server (profileId=" + activeProfileId + "):", Object.keys(map));
-        serverUiSettingsProfileIdRef.current = activeProfileId;
-        setServerUiSettings(map);
+        if (list.length > 0) console.debug("[UI Settings] Loaded from server (profileId=" + profileIdForFetch + "):", Object.keys(map));
+        setServerUiSettingsForProfile(profileIdForFetch != null ? { profileId: profileIdForFetch, settings: map } : { profileId: null, settings: map });
       })
       .catch((err) => {
         console.warn("[UI Settings] Load error:", err?.message || err);
-        serverUiSettingsProfileIdRef.current = activeProfileId;
-        setServerUiSettings({});
+        if (!cancelled) setServerUiSettingsForProfile(profileIdForFetch != null ? { profileId: profileIdForFetch, settings: {} } : { profileId: null, settings: {} });
       });
     return () => { cancelled = true; };
   }, [activeProfileId]);
 
-  // Apply server settings only when they were fetched for the current profile (avoids applying stale data from previous profile on re-renders)
+  // Apply server settings when we have data for the current profile (state holds { profileId, settings } so every profile switch that fetches new data triggers apply)
   useEffect(() => {
-    if (serverUiSettings == null) return;
-    if (serverUiSettingsProfileIdRef.current !== activeProfileId) return;
-    if (serverSettingsAppliedRef.current) return;
-    serverSettingsAppliedRef.current = true;
+    if (serverUiSettingsForProfile == null) return;
+    if (serverUiSettingsForProfile.profileId !== activeProfileId) return;
+    const serverUiSettings = serverUiSettingsForProfile.settings;
     const sectionArr = serverUiSettings[SECTION_ORDER_KEY];
     if (Array.isArray(sectionArr) && sectionArr.length === SECTION_IDS.length && SECTION_IDS.every((id) => sectionArr.includes(id))) {
       setSectionOrder(sectionArr);
@@ -2944,7 +2939,7 @@ export default function SingleTradeLiveView({ formattedRow: initialFormattedRow,
       console.debug("[UI Settings] Applying Binance column visibility from server");
       setBinanceColumnVisibility(binanceVis);
     }
-  }, [serverUiSettings, activeProfileId]);
+  }, [serverUiSettingsForProfile, activeProfileId]);
 
   // backSplitPercent is no longer used (Binance Data is a single panel now), so we stop updating it.
 
