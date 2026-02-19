@@ -285,9 +285,15 @@ const App = () => {
 
 
   const [layoutOption, setLayoutOption] = useState(() => {
-    const saved = localStorage.getItem("layoutOption");
-    return saved ? parseInt(saved, 10) : 3;
-  }); // default 3 cards per row
+    try {
+      const saved = localStorage.getItem("layoutOption");
+      if (saved == null || saved === "") return 3;
+      const n = parseInt(saved, 10);
+      return (Number.isInteger(n) && n >= 1 && n <= 14) ? n : 3;
+    } catch (_) {
+      return 3;
+    }
+  }); // default 3 columns per row
   const [signalToggleAll, setSignalToggleAll] = useState(() => {
     const saved = localStorage.getItem("selectedSignals");
     if (saved) {
@@ -1900,26 +1906,31 @@ useEffect(() => {
         <div className="flex flex-wrap items-start gap-3 ml-0 md:ml-6">
   {/* Controls block */}
   <div className="flex items-center gap-3 flex-none">
-    <span className="text-sm md:text-base lg:text-lg font-semibold text-black">Layout:</span>
+    <span className="text-sm md:text-base lg:text-lg font-semibold text-black dark:text-white">Layout:</span>
     <button
+      type="button"
       onClick={() => {
         const newOption = Math.max(1, layoutOption - 1);
         setLayoutOption(newOption);
-        localStorage.setItem("layoutOption", newOption);
         try { localStorage.setItem("layoutOption", String(newOption)); } catch (_) {}
       }}
-      className="bg-gray-300 hover:bg-gray-400 text-black px-2 py-1 md:px-3 md:py-1.5 rounded text-sm md:text-base"
+      className="bg-gray-300 hover:bg-gray-400 dark:bg-gray-600 dark:hover:bg-gray-500 text-black dark:text-white px-2 py-1 md:px-3 md:py-1.5 rounded text-sm md:text-base"
+      aria-label="Decrease columns"
     >
       ➖
     </button>
+    <span className="text-sm md:text-base font-medium text-black dark:text-white min-w-[1.5rem] text-center" aria-live="polite">
+      {layoutOption}
+    </span>
     <button
+      type="button"
       onClick={() => {
         const newOption = Math.min(14, layoutOption + 1);
         setLayoutOption(newOption);
-        localStorage.setItem("layoutOption", newOption);
         try { localStorage.setItem("layoutOption", String(newOption)); } catch (_) {}
       }}
-      className="bg-gray-300 hover:bg-gray-400 text-black px-2 py-1 md:px-3 md:py-1.5 rounded text-sm md:text-base"
+      className="bg-gray-300 hover:bg-gray-400 dark:bg-gray-600 dark:hover:bg-gray-500 text-black dark:text-white px-2 py-1 md:px-3 md:py-1.5 rounded text-sm md:text-base"
+      aria-label="Increase columns"
     >
       ➕
     </button>
@@ -2167,7 +2178,7 @@ useEffect(() => {
                     <div
                       className="grid gap-6 w-full px-2 py-4"
                       style={{
-                        gridTemplateColumns: `repeat(${layoutOption}, minmax(0, 1fr))`,
+                        gridTemplateColumns: `repeat(${Math.min(14, Math.max(1, Number(layoutOption) || 3))}, minmax(0, 1fr))`,
                         transition: 'all 0.3s ease-in-out',
                       }}
                     >
