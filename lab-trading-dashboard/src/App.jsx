@@ -1595,15 +1595,13 @@ useEffect(() => {
     settingsAppliedOnceRef.current = true;
   }, [parseSetting, DEFAULT_SIGNALS, DEFAULT_INTERVALS, DEFAULT_LIVE_FILTER, DEFAULT_CHART, DEFAULT_SOUND]);
 
-  // Persist all settings to server when logged in (per profile), and always keep a copy in localStorage
+  // Persist all settings to localStorage only
   const syncToServerAndLocal = useCallback((key, value) => {
-    const str = typeof value === "string" ? value : JSON.stringify(value);
     try {
       if (key === "theme") localStorage.setItem("theme", value);
       else if (key === "soundSettings") localStorage.setItem("soundSettings", typeof value === "string" ? value : JSON.stringify(value));
-      else localStorage.setItem(key, str);
+      else localStorage.setItem(key, typeof value === "string" ? value : JSON.stringify(value));
     } catch (_) {}
-    if (themeProfileRef.current) themeProfileRef.current.saveSetting(key, str);
   }, []);
 
   useEffect(() => {
