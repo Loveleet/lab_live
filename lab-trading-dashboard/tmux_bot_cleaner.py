@@ -21,13 +21,13 @@ NODE_PROCESS_NAME = "node"
 RESTART_COOLDOWN_MINUTES = 1  # 30 seconds instead of 2 minutes
 last_restart_time = 0
 
-# Database configuration
+# Database configuration — use env vars; do not commit real password
 DB_CONFIG = {
-    'user': 'lab',
-    'password': 'IndiaNepal1-',
-    'host': '127.0.0.1',
-    'port': '5432',
-    'database': 'labdb2'
+    'user': os.environ.get('TMUX_DB_USER', 'lab'),
+    'password': os.environ.get('TMUX_DB_PASSWORD', ''),
+    'host': os.environ.get('TMUX_DB_HOST', '127.0.0.1'),
+    'port': os.environ.get('TMUX_DB_PORT', '5432'),
+    'database': os.environ.get('TMUX_DB_NAME', 'labdb2'),
 }
 
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))

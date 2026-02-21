@@ -413,9 +413,9 @@ try:
         Returns the order response dict from Binance.
         """
         try:
-            return {"ok": False, "message": f'Place Order Not Implemented {symbol} {side} {posSide} {qty}'}
-            # output= client.new_order(symbol=symbol, side=side,positionSide=posSide, type='MARKET', quantity=qty,recvWindow=5000)
-            # return output
+            # return {"ok": False, "message": f'Place Order Not Implemented {symbol} {side} {posSide} {qty}'}
+            output= client.new_order(symbol=symbol, side=side,positionSide=posSide, type='MARKET', quantity=qty,recvWindow=5000)
+            return output
         except Exception as e:
             _log_error(f"HedgeModePlaceOrder({symbol} {side} {posSide} {qty}): {e}", critical=True, exc=e)
             return {"ok": False, "message": str(e)}

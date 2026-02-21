@@ -20,11 +20,11 @@ SSH in and create a dump of `labdb2`:
 ```bash
 ssh root@150.241.245.36
 
-# Dump the database (use postgres user; password: IndiaNepal1-)
-PGPASSWORD='IndiaNepal1-' pg_dump -h localhost -U postgres -d labdb2 -F c -f /tmp/labdb2.dump
+# Dump the database (set PGPASSWORD in env; do not commit real password in scripts)
+PGPASSWORD="${PGPASSWORD}" pg_dump -h localhost -U postgres -d labdb2 -F c -f /tmp/labdb2.dump
 
 # Or if PostgreSQL is on another host on that machine:
-# PGPASSWORD='IndiaNepal1-' pg_dump -h 127.0.0.1 -U postgres -d labdb2 -F c -f /tmp/labdb2.dump
+# PGPASSWORD="${PGPASSWORD}" pg_dump -h 127.0.0.1 -U postgres -d labdb2 -F c -f /tmp/labdb2.dump
 ```
 
 ### Step 2: Copy the dump to the app server
@@ -64,7 +64,7 @@ If the app server can connect to the DB server (firewall allows 150.241.244.130 
 ```bash
 ssh root@150.241.244.130
 
-PGPASSWORD='IndiaNepal1-' pg_dump -h 150.241.245.36 -U postgres -d labdb2 -F c -f /tmp/labdb2.dump
+PGPASSWORD="${PGPASSWORD}" pg_dump -h 150.241.245.36 -U postgres -d labdb2 -F c -f /tmp/labdb2.dump
 sudo -u postgres psql -c "DROP DATABASE IF EXISTS labdb2;"
 sudo -u postgres psql -c "CREATE DATABASE labdb2 OWNER postgres;"
 sudo -u postgres pg_restore -d labdb2 -F c /tmp/labdb2.dump

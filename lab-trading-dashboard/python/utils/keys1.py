@@ -1,90 +1,40 @@
-###loveleet KEY
+# Binance and DB credentials from environment. Do not commit real values.
+# Set BINANCE_API_KEY, BINANCE_SECRET (and DB_*) in env, or use a local keys1_local.py (gitignored).
 
-# api='eMoM4qdstub9XoBS2R5pE9ixiQ8PaDm0CbDHPdoeq1XuJvbSfu9mkXIqkxuYLfKF'
-# secret='YuL3CLMGREJh9dMSuKEWpTtW5gJhHE3ZKTke6peZxS6DgV3Kt4UnbnebPEdMX3kF'
+import os
 
+api = os.environ.get("BINANCE_API_KEY", "")
+secret = os.environ.get("BINANCE_SECRET", "")
 
-# anish
-#api='d8d0107edbc3794599efcbd9ae6b640bf46241b48d866edc806df65f0b6dbc22'
-#secret='476a347161016506113c608fdd621a502e3e72b786f126f4da10af2a9f9335c2'
+# Fallback: load keys1_local.py from same directory (gitignored) so open-position works without env
+if not api or not secret:
+    try:
+        _dir = os.path.dirname(os.path.abspath(__file__))
+        _local_path = os.path.join(_dir, "keys1_local.py")
+        if os.path.isfile(_local_path):
+            import importlib.util
+            _spec = importlib.util.spec_from_file_location("keys1_local", _local_path)
+            _mod = importlib.util.module_from_spec(_spec)
+            _spec.loader.exec_module(_mod)
+            if getattr(_mod, "api", None):
+                api = _mod.api
+            if getattr(_mod, "secret", None):
+                secret = _mod.secret
+    except Exception:
+        pass
 
-# anish m1
-anishm1_api='3i2ZW2WqaU3bckPJN6E6JwBewelLOGDImNNA4z5PrcT3TZXvha4VwDYPr6z8xMOn'
-anishm1_secret='hSVSyIDVNzpbyKAVPq8X4AJQ8NAkiUQMhT2UZDnw76rBUFDgJnXIA435J9KAXUC8'
-
-
-# anish m2
-anishm2_api='seSpIhGqzKPaDMQSX2fBkj5HfOyss1dUPyhwN6zfqTmUQLYSOsvtzBZ6uWN0svgV'
-anishm2_secret='GQ3sn0TjR9VEDn3lBipDRmaGxoU9BercHNVZYOEaleneTVsd1gFZMv7FiIwa4iO9'
-
-M3_api = 'eIWajxTqaT8l7LkoyNUQBbTV447ZwfZh2lSbS9wQTn2TEtHnEjIBbARZtU8twQnj'
-M3_secret = 'HKXTKyiqDsvblmkzBiQ1s2D4CUh2hHJIjzxu4Y6DM4M5hz2Kbs2xmowXVZrP1LdD'
-
-M4_api= 'Pi1VQWPhUiNUVigmHepoaOKG53NhroN0stwqYcTnLDosz8G9SrWJTxlOHzTD5LHr'
-M4_secret= 'nGk5dOAYTnAaxVnRDhXxegaCdGYEyzGAxx53ryeWDIob1XXAMlazDQGO8mFEIYJS'
-
-
-
-###NILU KEY
-
-# api='d8d0107edbc3794599efcbd9ae6b640bf46241b48d866edc806df65f0b6dbc22'
-# secret='476a347161016506113c608fdd621a502e3e72b786f126f4da10af2a9f9335c2'
-
-
-
-# api='IzH3bfzRcHT6i0BNWubV63vzz4pWIk6gZsGIT0YlOvQaoB7AdxCNW3A8sJDZ8NfF'
-# secret='f162MJ10lKiB2tnmTy4EADrO5tn3f9ppHBiTFfpX8peUB0L6UPuXjMH9sJj65opo'
-
-api='eMoM4qdstub9XoBS2R5pE9ixiQ8PaDm0CbDHPdoeq1XuJvbSfu9mkXIqkxuYLfKF'
-secret='YuL3CLMGREJh9dMSuKEWpTtW5gJhHE3ZKTke6peZxS6DgV3Kt4UnbnebPEdMX3kF'
+_db_server = os.environ.get("DB_SERVER", "localhost")
+_db_name = os.environ.get("DB_NAME", "labDB2")
+_db_user = os.environ.get("DB_USER", "lab")
+_db_pwd = os.environ.get("DB_PASSWORD", "")
 
 connection_string = (
-    'DRIVER={ODBC Driver 17 for SQL Server};'
-    # 'SERVER=LAPTOP-HSV722UA;'
-    # "SERVER=4.240.115.57,1433;"
-    # "SERVER=20.40.58.121,1433;"
-    "SERVER=13.127.247.248,1433;"
-
-    # 'DATABASE=labDB;'
-    'DATABASE=labDB2;'
-    'UID=lab;'
-    'PWD=IndiaNepal1-;'
-    'Connection Timeout=120;'
+    "DRIVER={ODBC Driver 17 for SQL Server};"
+    f"SERVER={_db_server};"
+    f"DATABASE={_db_name};"
+    f"UID={_db_user};"
+    f"PWD={_db_pwd};"
+    "Connection Timeout=120;"
 )
-
-
-connection_string_labdb2 = (
-    'DRIVER={ODBC Driver 17 for SQL Server};'
-    'SERVER=LAPTOP-HSV722UA;'
-    # "SERVER=20.40.58.121,1433;"
-    # "SERVER=108.181.197.180,19910;"
-    "SERVER=13.127.247.248,1433;"
-
-    'DATABASE=labDB2;'
-    'UID=lab;'
-    'PWD=IndiaNepal1-;'
-    'Connection Timeout=120;'
-)
-
-connection_string1 = (
-    'DRIVER={ODBC Driver 17 for SQL Server};'
-    'SERVER=LAPTOP-HSV722UA;'
-    #"SERVER=4.240.115.57,1433;"
-    # "SERVER=108.181.197.180,19910;"
-    "SERVER=13.127.247.248,1433;"
-
-    
-
-    # 'DATABASE=local_anish;'
-    'DATABASE=labDB2;'
-    'UID=lab;'
-    'PWD=IndiaNepal1-;'
-    'Connection Timeout=120;'
-)
-
-
-
-
-
-
-
+connection_string_labdb2 = connection_string
+connection_string1 = connection_string

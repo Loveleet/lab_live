@@ -9,10 +9,10 @@ cd "$(dirname "$0")/.."
 [ -f .env ] && set -a && . ./.env && set +a
 
 DEPLOY_HOST="${DEPLOY_HOST:?Set DEPLOY_HOST in .env}"
-# Same credentials as Render used (server copy.js): 150.241.245.36, postgres, IndiaNepal1-, labdb2, no SSL
+# Set DB_PASSWORD (and DB_HOST, DB_USER, DB_NAME) in env; do not commit real credentials
 DB_SERVER_IP="150.241.245.36"
 DB_USER="postgres"
-DB_PASS="IndiaNepal1-"
+DB_PASS="${DB_PASSWORD:-}"
 DB_PORT="5432"
 DB_NAME="labdb2"
 

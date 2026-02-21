@@ -77,7 +77,7 @@ If you prefer the app to read from the DB server every time:
 2. On the **app server**, edit `/etc/lab-trading-dashboard.env`:
    ```bash
    DB_HOST=150.241.245.36
-   # keep: DB_PORT=5432, DB_USER=postgres, DB_PASSWORD=IndiaNepal1-, DB_NAME=labdb2
+   # keep: DB_PORT=5432, DB_USER=postgres, DB_PASSWORD=<your-password>, DB_NAME=labdb2
    ```
 
 3. Restart the app:

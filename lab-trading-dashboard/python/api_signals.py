@@ -203,6 +203,16 @@ def sync_open_positions():
         
         if not positions:
             _log("sync-open-positions | No positions from Binance, nothing to sync", "WARN")
+            try:
+                from utils.keys1 import api, secret
+                if not (api and secret):
+                    _log(
+                        "sync-open-positions | Binance keys missing. Either set env BINANCE_API_KEY and BINANCE_SECRET, "
+                        "or copy utils/keys1_local.example.py to utils/keys1_local.py and set your api= and secret= there, then restart.",
+                        "WARN",
+                    )
+            except Exception:
+                pass
             return jsonify({
                 "ok": True,
                 "message": "No open positions found",

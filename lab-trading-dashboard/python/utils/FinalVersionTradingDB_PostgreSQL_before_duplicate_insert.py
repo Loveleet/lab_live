@@ -162,15 +162,19 @@ API_KEYS = [
     # Add more keys as needed
 ]
 
-# PostgreSQL Connection String - Update these values for your PostgreSQL server
-# Format: postgresql://username:password@host:port/database
-#local server
-#connection_string_postgresql = "postgresql://lab:IndiaNepal1-@192.168.18.14:5432/labdb2"
-
-#UTHO server
-#connection_string_postgresql = "postgresql://lab:IndiaNepal1-@150.241.244.23:5432/labdb2"
-
-connection_string_postgresql = "postgresql://lab:IndiaNepal1-@127.0.0.1:5432/labdb2"
+# PostgreSQL connection from env (do not commit credentials)
+import os as _os
+def _pg_url():
+    u = _os.environ.get("DATABASE_URL")
+    if u:
+        return u
+    h = _os.environ.get("DB_HOST", "127.0.0.1")
+    p = _os.environ.get("DB_PORT", "5432")
+    user = _os.environ.get("DB_USER", "lab")
+    pwd = _os.environ.get("DB_PASSWORD", "")
+    db = _os.environ.get("DB_NAME", "labdb2")
+    return f"postgresql://{user}:{pwd}@{h}:{p}/{db}"
+connection_string_postgresql = _pg_url()
 
 def create_new_engine():
     return create_engine(

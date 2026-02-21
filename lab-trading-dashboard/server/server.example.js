@@ -101,7 +101,7 @@ app.use("/logs", (req, res, next) => {
   express.static(currentLogPath)(req, res, next);
 });
 
-// ✅ Database Configuration — same as server copy.js / Render: 150.241.245.36, postgres, IndiaNepal1-, olab, ssl: false
+// ✅ Database configuration — set DB_PASSWORD (and DB_HOST, DB_USER, DB_NAME) in env; do not commit real credentials
 function buildDbConfig() {
   const dbHost = process.env.DB_HOST || 'localhost';
   const host = (dbHost === '150.241.244.130' ? 'localhost' : dbHost);
@@ -110,7 +110,7 @@ function buildDbConfig() {
     host,
     port: parseInt(process.env.DB_PORT || '5432', 10),
     user: process.env.DB_USER || 'postgres',
-    password: process.env.DB_PASSWORD || (isRemoteDb ? 'IndiaNepal1-' : ''),
+    password: process.env.DB_PASSWORD || '',
     database: process.env.DB_NAME || 'olab',
     connectionTimeoutMillis: isRemoteDb ? 30000 : 10000,
     idleTimeoutMillis: 30000,

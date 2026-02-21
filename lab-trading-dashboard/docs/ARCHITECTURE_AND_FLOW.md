@@ -69,7 +69,7 @@ There is no separate “frontend host” in production: the cloud **is** both fr
 | SSH to cloud (DEPLOY_HOST, DEPLOY_PASSWORD) | Your **local** `.env` in the repo root | No (`.env` is gitignored) |
 | DB server SSH (DB_SERVER, DB_SERVER_PASSWORD) | Same local `.env` | No |
 | **Codebase (GitHub)** | | |
-| `server.example.js` | Template only — **no** passwords; has defaults like `IndiaNepal1-` only for the *remote* DB host in code | Yes (safe: no real secrets) |
+| `server.example.js` | Template only — **no** passwords; set DB_PASSWORD (and DB_HOST, DB_USER, DB_NAME) in env | Yes (safe: no real secrets) |
 | `server.js` | **Not in Git** — created on the cloud from `server.example.js` at deploy time | No (gitignored) |
 | `.env` | **Not in Git** — used only on your laptop for deploy scripts | No (gitignored) |
 

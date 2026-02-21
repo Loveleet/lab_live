@@ -10,7 +10,7 @@ cd "$REPO_ROOT"
 if [ -f /etc/lab-trading-dashboard.env ] && [ "$(whoami)" = "root" ] && [[ "$REPO_ROOT" == /opt/* ]]; then
   echo "→ Running on app server (root in /opt). Using /etc/lab-trading-dashboard.env"
   set -a && . /etc/lab-trading-dashboard.env && set +a
-  DB_PASS="${DB_PASSWORD:-IndiaNepal1-}"
+  DB_PASS="${DB_PASSWORD:-}"
   echo "→ Step 1: pg_dump from this host to DB 150.241.245.36..."
   if PGPASSWORD="$DB_PASS" pg_dump -h 150.241.245.36 -U postgres -d labdb2 -F c -f /tmp/labdb2.dump 2>/dev/null; then
     echo "→ Dump created. Restoring locally..."
@@ -58,7 +58,7 @@ fi
 # Legacy: dump on DB server via SSH, then scp
 echo "→ Step 1c: Dump on DB server ($DB_SERVER) via SSH..."
 if SSHPASS="$DB_SERVER_PASSWORD" sshpass -e ssh -o StrictHostKeyChecking=accept-new "$DB_SERVER" \
-  "PGPASSWORD='IndiaNepal1-' pg_dump -h 127.0.0.1 -U postgres -d labdb2 -F c -f /tmp/labdb2.dump && ls -la /tmp/labdb2.dump"; then
+  "PGPASSWORD=\"\$PGPASSWORD\" pg_dump -h 127.0.0.1 -U postgres -d labdb2 -F c -f /tmp/labdb2.dump && ls -la /tmp/labdb2.dump"; then
   echo "→ Step 2: Copy dump to app server..."
   SSHPASS="$DB_SERVER_PASSWORD" sshpass -e scp -o StrictHostKeyChecking=no "$DB_SERVER:/tmp/labdb2.dump" /tmp/labdb2.dump
   SSHPASS="$DEPLOY_PASSWORD" sshpass -e scp -o StrictHostKeyChecking=no /tmp/labdb2.dump "$APP_SERVER:/tmp/labdb2.dump"

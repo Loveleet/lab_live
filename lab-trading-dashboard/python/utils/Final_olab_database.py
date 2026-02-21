@@ -169,15 +169,23 @@ API_KEYS = [
     # Add more keys as needed
 ]
 
-# PostgreSQL Connection String - Update these values for your PostgreSQL server
-# Format: postgresql://username:password@host:port/database
-#local server
-#connection_string_postgresql = "postgresql://lab:IndiaNepal1-@192.168.18.14:5432/olab"
-
-#UTHO server
-connection_string_postgresql = "postgresql://lab:IndiaNepal1-@150.241.244.130:5432/olab"
-
-# connection_string_postgresql = "postgresql://lab:IndiaNepal1-@127.0.0.1:5432/olab"
+# PostgreSQL connection from env or keys1_postgresql.connection_string_olab (set in keys1_postgresql_local.py)
+import os as _os
+def _olab_pg_url():
+    u = _os.environ.get("OLAB_DATABASE_URL") or _os.environ.get("DATABASE_URL")
+    if u:
+        return u
+    h = _os.environ.get("DB_HOST", "127.0.0.1")
+    p = _os.environ.get("DB_PORT", "5432")
+    user = _os.environ.get("DB_USER", "lab")
+    pwd = _os.environ.get("DB_PASSWORD", "")
+    db = _os.environ.get("OLAB_DB_NAME") or _os.environ.get("DB_NAME", "olab")
+    return f"postgresql://{user}:{pwd}@{h}:{p}/{db}"
+try:
+    from utils.keys1_postgresql import connection_string_olab
+    connection_string_postgresql = (connection_string_olab or "").strip() or _olab_pg_url()
+except Exception:
+    connection_string_postgresql = _olab_pg_url()
 
 def olab_create_new_engine():
     return create_engine(

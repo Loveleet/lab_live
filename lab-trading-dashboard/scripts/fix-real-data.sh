@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # One script to fix real data: open port on DB server (if we can SSH), then point cloud at DB server.
-# Passwords: cloud = DEPLOY_PASSWORD (9988609709), Postgres on DB server = IndiaNepal1-
+# Passwords: set DEPLOY_PASSWORD and DB_PASSWORD in env; do not commit real values
 #
 # Usage: ./scripts/fix-real-data.sh
 
@@ -11,9 +11,9 @@ cd "$(dirname "$0")/.."
 DEPLOY_HOST="${DEPLOY_HOST:?}"
 DB_SERVER="${DB_SERVER:-root@150.241.245.36}"
 DB_SERVER_IP="150.241.245.36"
-# Same as Render (server copy.js): postgres / IndiaNepal1- / labdb2 / port 5432 / no SSL
-DB_USER="postgres"
-PG_PASS="IndiaNepal1-"
+# Set DB_PASSWORD in env; do not commit real credentials
+DB_USER="${DB_USER:-postgres}"
+PG_PASS="${DB_PASSWORD:-}"
 DB_PORT="5432"
 DB_NAME="labdb2"
 
@@ -46,7 +46,7 @@ fi
 
 # Step 3: Point cloud at DB server with same credentials as Render (server copy.js)
 echo ""
-echo "→ Step 3: Point cloud at DB server (postgres / labdb2 / IndiaNepal1-)..."
+echo "→ Step 3: Point cloud at DB server (postgres / labdb2 / DB_PASSWORD)..."
 SSHPASS="$DEPLOY_PASSWORD" sshpass -e ssh -o StrictHostKeyChecking=no "$DEPLOY_HOST" "
   sudo sed -i 's/^DB_HOST=.*/DB_HOST=$DB_SERVER_IP/' /etc/lab-trading-dashboard.env
   sudo sed -i 's/^DB_USER=.*/DB_USER=$DB_USER/' /etc/lab-trading-dashboard.env

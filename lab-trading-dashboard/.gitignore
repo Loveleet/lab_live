@@ -30,3 +30,12 @@ __pycache__/
 # Local
 venv/
 .venv/
+
+# Backup/copy Python files (may contain secrets; use main_binance.py)
+lab-trading-dashboard/python/utils/main_binance copy.py
+lab-trading-dashboard/python
+
+
+# Local Binance/DB keys (optional override; do not commit)
+**/keys1_local.py
+**/keys1_postgresql_local.py

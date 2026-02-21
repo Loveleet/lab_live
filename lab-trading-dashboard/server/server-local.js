@@ -48,7 +48,7 @@ function getDbConfig(host, options = {}) {
 function getFallbackDbConfig() {
   return getDbConfig(FALLBACK_HOST, {
     user: process.env.DB_USER || process.env.FALLBACK_DB_USER || "lab",
-    password: process.env.DB_PASSWORD || process.env.FALLBACK_DB_PASSWORD || "IndiaNepal1-",
+    password: process.env.DB_PASSWORD || process.env.FALLBACK_DB_PASSWORD || "",
     noSsl: true,
     connectTimeout: 30000,
   });

@@ -1,64 +1,64 @@
-# anish m1
-anishm1_api='3i2ZW2WqaU3bckPJN6E6JwBewelLOGDImNNA4z5PrcT3TZXvha4VwDYPr6z8xMOn'
-anishm1_secret='hSVSyIDVNzpbyKAVPq8X4AJQ8NAkiUQMhT2UZDnw76rBUFDgJnXIA435J9KAXUC8'
+# PostgreSQL credentials from environment or keys1_postgresql_local.py. Do not commit real values.
+# Set DATABASE_URL or DB_* in env, or create utils/keys1_postgresql_local.py (gitignored) with your host/user/password.
 
-# anish m2
-anishm2_api='seSpIhGqzKPaDMQSX2fBkj5HfOyss1dUPyhwN6zfqTmUQLYSOsvtzBZ6uWN0svgV'
-anishm2_secret='GQ3sn0TjR9VEDn3lBipDRmaGxoU9BercHNVZYOEaleneTVsd1gFZMv7FiIwa4iO9'
+import os
 
-M3_api = 'eIWajxTqaT8l7LkoyNUQBbTV447ZwfZh2lSbS9wQTn2TEtHnEjIBbARZtU8twQnj'
-M3_secret = 'HKXTKyiqDsvblmkzBiQ1s2D4CUh2hHJIjzxu4Y6DM4M5hz2Kbs2xmowXVZrP1LdD'
+def _pg_url(db_name=None):
+    base = os.environ.get("DATABASE_URL")
+    if base and not db_name:
+        return base
+    host = os.environ.get("DB_HOST", "127.0.0.1")
+    port = os.environ.get("DB_PORT", "5432")
+    user = os.environ.get("DB_USER", "lab")
+    pwd = os.environ.get("DB_PASSWORD", "")
+    db = db_name or os.environ.get("DB_NAME", "labdb2")
+    return f"postgresql://{user}:{pwd}@{host}:{port}/{db}"
 
-M4_api= 'Pi1VQWPhUiNUVigmHepoaOKG53NhroN0stwqYcTnLDosz8G9SrWJTxlOHzTD5LHr'
-M4_secret= 'nGk5dOAYTnAaxVnRDhXxegaCdGYEyzGAxx53ryeWDIob1XXAMlazDQGO8mFEIYJS'
-
-
-api='d8d0107edbc3794599efcbd9ae6b640bf46241b48d866edc806df65f0b6dbc22'
-secret='476a347161016506113c608fdd621a502e3e72b786f126f4da10af2a9f9335c2'
-
-# PostgreSQL Connection Strings
-# Format: postgresql://username:password@host:port/database
-
-# # Primary PostgreSQL connection string
-connection_string_postgresql = "postgresql://lab:IndiaNepal1-@150.241.244.130:5432/labdb2"
-
-connection_string_postgresql_backtest_db  = "postgresql://lab:IndiaNepal1-@127.0.0.1:5432/backtestdb"
-# connection_string_postgresql_backtest_db  = "postgresql://lab:IndiaNepal1-@150.241.244.130:5432/backtestdb"
-
-# # Backup PostgreSQL connection strings
-# connection_string_postgresql_backup1 = "postgresql://lab:IndiaNepal1-@150.241.244.23:5432/labdb2"
-
-# connection_string_postgresql_backup2 = "postgresql://lab:IndiaNepal1-@150.241.244.23:5432/labdb2"
-
-
-# Primary PostgreSQL connection string
-# connection_string_postgresql = "postgresql://lab:IndiaNepal1-@127.0.0.1:5432/labdb2"
-
-# Backup PostgreSQL connection strings
-connection_string_postgresql_backup1 = "postgresql://lab:IndiaNepal1-@127.0.0.1:5432/labdb2"
-
-connection_string_postgresql_backup2 = "postgresql://lab:IndiaNepal1-@127.0.0.1:5432/labdb2"
-
-# For compatibility with existing code, keep the old variable name but point to PostgreSQL
+connection_string_postgresql = _pg_url()
+connection_string_postgresql_backtest_db = os.environ.get("DATABASE_URL_BACKTEST") or _pg_url("backtestdb")
+connection_string_postgresql_backup1 = connection_string_postgresql
+connection_string_postgresql_backup2 = connection_string_postgresql
 connection_string = connection_string_postgresql
 
-# PostgreSQL-specific configuration
 POSTGRESQL_CONFIG = {
-    'host': '127.0.0.1',
-    'port': 5432,
-    'database': 'labdb2',
-    'user': 'lab',
-    'password': 'IndiaNepal1-',
-    'connect_timeout': 300,
-    'application_name': 'TradingBot'
+    "host": os.environ.get("DB_HOST", "127.0.0.1"),
+    "port": int(os.environ.get("DB_PORT", "5432")),
+    "database": os.environ.get("DB_NAME", "labdb2"),
+    "user": os.environ.get("DB_USER", "lab"),
+    "password": os.environ.get("DB_PASSWORD", ""),
+    "connect_timeout": 300,
+    "application_name": "TradingBot",
 }
 
-# Connection pool settings for PostgreSQL
+connection_string_olab = None  # Set in keys1_postgresql_local.py or used by Final_olab_database from env
+
+# Override from local file (same dir as this file) so DB works without env vars
+try:
+    _dir = os.path.dirname(os.path.abspath(__file__))
+    _local_path = os.path.join(_dir, "keys1_postgresql_local.py")
+    if os.path.isfile(_local_path):
+        import importlib.util
+        _spec = importlib.util.spec_from_file_location("keys1_postgresql_local", _local_path)
+        _mod = importlib.util.module_from_spec(_spec)
+        _spec.loader.exec_module(_mod)
+        if getattr(_mod, "connection_string_postgresql", None):
+            connection_string_postgresql = _mod.connection_string_postgresql
+            connection_string_postgresql_backup1 = connection_string_postgresql
+            connection_string_postgresql_backup2 = connection_string_postgresql
+            connection_string = connection_string_postgresql
+        if getattr(_mod, "POSTGRESQL_CONFIG", None):
+            POSTGRESQL_CONFIG = _mod.POSTGRESQL_CONFIG
+        if getattr(_mod, "connection_string_postgresql_backtest_db", None):
+            connection_string_postgresql_backtest_db = _mod.connection_string_postgresql_backtest_db
+        if getattr(_mod, "connection_string_olab", None):
+            connection_string_olab = _mod.connection_string_olab
+except Exception:
+    pass
+
 POSTGRESQL_POOL_CONFIG = {
-    'pool_size': 50,
-    'max_overflow': 20,
-    'pool_timeout': 60,
-    'pool_recycle': 3600,
-    'pool_pre_ping': True
+    "pool_size": 50,
+    "max_overflow": 20,
+    "pool_timeout": 60,
+    "pool_recycle": 3600,
+    "pool_pre_ping": True,
 }
-

@@ -2,7 +2,7 @@
 
 **Credentials (same as Render / server copy.js):**
 - **Cloud Ubuntu** (150.241.244.130) SSH: `DEPLOY_PASSWORD` in `.env` (e.g. 9988609709)
-- **DB server** (150.241.245.36) Postgres: `DB_USER=postgres`, `DB_PASSWORD=IndiaNepal1-`, `DB_NAME=labdb2`, `DB_PORT=5432`, no SSL. The scripts set these on the cloud when pointing at the DB server.
+- **DB server** (150.241.245.36) Postgres: set `DB_USER`, `DB_PASSWORD`, `DB_NAME`, `DB_PORT` in env (do not commit real credentials). The scripts use these when pointing at the DB server.
 
 ---
 
