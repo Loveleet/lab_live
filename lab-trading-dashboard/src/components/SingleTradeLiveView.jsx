@@ -3845,7 +3845,7 @@ export default function SingleTradeLiveView({ formattedRow: initialFormattedRow,
           if (id === "binanceData") return (
         <section key="binanceData" className="rounded-xl border border-gray-300 dark:border-gray-700 bg-white dark:bg-[#181a20] overflow-hidden shadow-lg flex-shrink-0 flex flex-col relative">
           <div className="flex flex-wrap items-center justify-between gap-2 px-3 sm:px-4 py-2.5 bg-gradient-to-r from-teal-800 to-teal-700 text-white font-semibold flex-shrink-0">
-            <span className="text-sm sm:text-base">Binance Data</span>
+            <span className="text-sm sm:text-base">Binance DataQQQQQQQQQQQQQQQQQQQQQQQQQQQQQQQQQQ</span>
             <div className="flex items-center gap-2 flex-wrap">
               <span className="text-white/90 text-xs mr-1">Zoom:</span>
               <ZoomControls
