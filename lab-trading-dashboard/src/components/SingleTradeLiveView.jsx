@@ -2851,17 +2851,32 @@ export default function SingleTradeLiveView({ formattedRow: initialFormattedRow,
       return 60;
     })();
     let cancelled = false;
+    let logged404 = false;
     const poll = async () => {
       try {
         const res = await apiFetch(`/api/trade?unique_id=${encodeURIComponent(uniqueId)}`);
-        if (cancelled || !res.ok) return;
-        const json = await res.json();
+        if (cancelled) return;
+        if (!res.ok) {
+          if (res.status === 404) {
+            setTradePoll404(true);
+            if (!logged404) {
+              logged404 = true;
+              console.warn("[LAB] /api/trade returned 404 — server may be down. Showing last known data. Restart backend: sudo systemctl restart lab-trading-dashboard");
+            }
+          }
+          return;
+        }
+        setTradePoll404(false);
+        const json = await res.json().catch(() => ({}));
         const trade = json?.trade ?? null;
         if (cancelled || !trade) return;
         setRawTrade(trade);
         setFormattedRow(formatTradeData(trade, 0));
-      } catch {
-        // ignore
+      } catch (e) {
+        if (!logged404) {
+          logged404 = true;
+          console.warn("[LAB] /api/trade request failed:", e?.message || e);
+        }
       }
     };
     poll();
@@ -2909,6 +2924,7 @@ export default function SingleTradeLiveView({ formattedRow: initialFormattedRow,
   );
   const [exchangePositionData, setExchangePositionData] = useState(null);
   const [binanceDataRefreshKey, setBinanceDataRefreshKey] = useState(0);
+  const [tradePoll404, setTradePoll404] = useState(false);
 
   // --- Binance Data table settings: column order + visibility (+ actions column) ---
   const [binanceColumns, setBinanceColumns] = useState(() => {
@@ -3512,6 +3528,11 @@ export default function SingleTradeLiveView({ formattedRow: initialFormattedRow,
       </div>
 
       <div className="flex-1 overflow-y-auto overflow-x-hidden p-3 sm:p-4 space-y-3 sm:space-y-4 min-h-0">
+        {tradePoll404 && typeof window !== "undefined" && window.location?.hostname?.includes("github.io") && (
+          <div className="rounded-lg bg-amber-100 dark:bg-amber-900/50 border border-amber-400 dark:border-amber-600 px-3 py-2 text-amber-900 dark:text-amber-100 text-sm">
+            <strong>Backend returned 404.</strong> Data shown is from when you opened this trade. On the cloud server run: <code className="bg-amber-200/60 dark:bg-amber-800/60 px-1 rounded">sudo systemctl restart lab-trading-dashboard</code> then refresh this page.
+          </div>
+        )}
         {sectionOrder.map((id) => {
           if (id === "information") return (
         <section key="information" className="rounded-xl border border-gray-300 dark:border-gray-700 bg-white dark:bg-[#181a20] overflow-hidden shadow-lg flex-shrink-0 flex flex-col" style={{ minHeight: 200 }}>

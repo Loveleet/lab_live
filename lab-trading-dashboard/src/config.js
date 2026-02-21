@@ -176,12 +176,16 @@ export function api(path) {
 }
 
 /** Fetch with credentials so session cookie is sent. Use for all API calls that require auth.
- * On 401, dispatches 'lab-unauthorized' so the app can redirect to login. */
+ * On 401, dispatches 'lab-unauthorized' so the app can redirect to login.
+ * On 404, logs clearly for debugging (GitHub Pages vs localhost). */
 export function apiFetch(pathOrUrl, opts = {}) {
   const url = typeof pathOrUrl === "string" && pathOrUrl.startsWith("http") ? pathOrUrl : api(pathOrUrl);
   return fetch(url, { ...opts, credentials: "include" }).then((res) => {
     if (res.status === 401 && typeof window !== "undefined") {
       window.dispatchEvent(new CustomEvent("lab-unauthorized"));
+    }
+    if (res.status === 404 && typeof window !== "undefined") {
+      console.error("[LAB] 404 Not Found →", url, "| If this is api.clubinfotech.com, restart Node on cloud: sudo systemctl restart lab-trading-dashboard");
     }
     return res;
   });
