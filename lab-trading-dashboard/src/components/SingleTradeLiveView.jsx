@@ -863,13 +863,14 @@ function WidthDragger({ leftPercent, min = 20, max = 80, onChange, label }) {
   );
 }
 
+// Use regex only so text shows on GitHub Pages / production (no innerHTML; CSP or sanitization can clear DOM-based extraction)
 function stripHtml(str) {
-  if (str == null) return "";
-  const s = String(str);
-  if (typeof document === "undefined") return s.replace(/<[^>]+>/g, "").trim();
-  const div = document.createElement("div");
-  div.innerHTML = s;
-  return (div.textContent || "").trim();
+  if (str == null || str === "") return "";
+  if (typeof str !== "string") return String(str).trim();
+  return str
+    .replace(/<[^>]+>/g, " ")
+    .replace(/\s+/g, " ")
+    .trim();
 }
 
 function LiveTradeChartSection({
@@ -3845,7 +3846,7 @@ export default function SingleTradeLiveView({ formattedRow: initialFormattedRow,
           if (id === "binanceData") return (
         <section key="binanceData" className="rounded-xl border border-gray-300 dark:border-gray-700 bg-white dark:bg-[#181a20] overflow-hidden shadow-lg flex-shrink-0 flex flex-col relative">
           <div className="flex flex-wrap items-center justify-between gap-2 px-3 sm:px-4 py-2.5 bg-gradient-to-r from-teal-800 to-teal-700 text-white font-semibold flex-shrink-0">
-            <span className="text-sm sm:text-base">Binance DataQQQQQQQQQQQQQQQQQQQQQQQQQQQQQQQQQQ</span>
+            <span className="text-sm sm:text-base">Binance Data</span>
             <div className="flex items-center gap-2 flex-wrap">
               <span className="text-white/90 text-xs mr-1">Zoom:</span>
               <ZoomControls
