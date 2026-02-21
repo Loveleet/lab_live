@@ -51,7 +51,24 @@ def main():
     run(["ssh", HOST, "sudo systemctl start api-signals"])
     print("  OK: api-signals started\n")
 
-    print("Done. Check: ssh", HOST, '"systemctl status lab-trading-dashboard api-signals"')
+    # 4. Verify API is reachable (fixes GitHub Pages 404 when backend was down)
+    import time
+    import urllib.request
+    time.sleep(3)
+    api_url = "https://api.clubinfotech.com"
+    try:
+        req = urllib.request.Request(api_url + "/api/health", method="GET")
+        with urllib.request.urlopen(req, timeout=10) as r:
+            if r.status == 200:
+                print("  OK: API reachable at", api_url)
+            else:
+                print("  WARN: API returned", r.status, "— check nginx and Node on cloud")
+    except Exception as e:
+        print("  WARN: Could not reach", api_url, "—", e)
+        print("  Run: bash scripts/verify-api-from-laptop.sh   (after a minute)")
+
+    print("\nDone. Check: ssh", HOST, '"systemctl status lab-trading-dashboard api-signals"')
+    print("Verify from browser: https://api.clubinfotech.com/api/health  should show 200 OK")
 
 
 if __name__ == "__main__":
