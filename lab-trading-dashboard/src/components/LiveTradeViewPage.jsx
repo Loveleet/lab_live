@@ -53,8 +53,8 @@ const unwantedIndicatorGroups = [
 // const filteredJsonColumnOptions = jsonColumnOptions.filter(opt => !unwantedIndicatorGroups.includes(opt.value));
 
 const tradeDataColumnOptions = [
-  { label: 'Machine IDuuuuuuuuuuuuuuuu', value: 'MachineId' },
-  { label: 'Unique ID', value: 'Unique_id' },
+  { label: 'Machine ID', value: 'MachineId' },
+  { label: 'Unique IDAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA', value: 'Unique_id' },
   { label: 'Candle Time', value: 'Candel_time' },
   { label: 'Fetcher Trade Time', value: 'Fetcher_Trade_time' },
   { label: 'Operator Trade Time', value: 'Operator_Trade_time' },
