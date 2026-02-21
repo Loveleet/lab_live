@@ -457,6 +457,13 @@ const [selectedIntervals, setSelectedIntervals] = useState(() => {
       } catch (_) {}
       const tradeRes = await apiFetch("/api/trades");
       if (tradeRes.status === 401) { setLoggedIn(false); return; }
+      if (tradeRes.status === 404 && typeof window !== "undefined" && window.location?.hostname?.includes("github.io")) {
+        setApiUnreachable(true);
+        setTradeData([]);
+        setDemoDataHint(null);
+        console.error("[LAB] API returned 404 — server at api.clubinfotech.com may be down or not proxying. On cloud run: sudo systemctl restart lab-trading-dashboard");
+        return;
+      }
       const tradeJson = tradeRes.ok ? await tradeRes.json() : { trades: [] };
       const trades = Array.isArray(tradeJson.trades) ? tradeJson.trades : [];
       console.log("[DEBUG] Trades received:", trades.length, "rows");
@@ -1842,9 +1849,10 @@ useEffect(() => {
                   )}
                   {apiUnreachable && !corsError && !localServerDown && (
                     <div className="mb-4 p-4 rounded-lg bg-amber-100 dark:bg-amber-900/40 border border-amber-400 dark:border-amber-600 text-amber-900 dark:text-amber-100 text-sm">
-                      <strong className="block mb-2">API unreachable</strong>
-                      <p className="mb-2">The backend at the current API URL could not be reached. Check that the server is running and that <code className="bg-amber-200/60 dark:bg-amber-800/60 px-1 rounded">API_BASE_URL</code> is set to your cloud URL (e.g. <code className="bg-amber-200/60 dark:bg-amber-800/60 px-1 rounded">http://150.241.244.130:10000</code>).</p>
-                      <p className="text-xs">Hard-refresh (Ctrl+Shift+R) after fixing the URL or restarting the server.</p>
+                      <strong className="block mb-2">API unreachable (or 404)</strong>
+                      <p className="mb-2">The backend at the current API URL could not be reached. If the console shows <strong>404</strong>, the server at <code className="bg-amber-200/60 dark:bg-amber-800/60 px-1 rounded">api.clubinfotech.com</code> is not responding correctly.</p>
+                      <p className="mb-2">Fix: on the <strong>cloud server</strong> run: <code className="bg-amber-200/60 dark:bg-amber-800/60 px-1 rounded block mt-1 p-1">sudo systemctl restart lab-trading-dashboard</code> and ensure nginx proxies to Node (see <code className="bg-amber-200/60 dark:bg-amber-800/60 px-1 rounded">docs/WHAT_RUNS_WHERE_AND_404_FIX.md</code>).</p>
+                      <p className="text-xs">Also ensure <code className="bg-amber-200/60 dark:bg-amber-800/60 px-1 rounded">API_BASE_URL</code> = <code className="bg-amber-200/60 dark:bg-amber-800/60 px-1 rounded">https://api.clubinfotech.com</code> in GitHub Secrets, then hard-refresh (Ctrl+Shift+R).</p>
                     </div>
                   )}
                   {typeof window !== "undefined" && window.location?.hostname?.includes("github.io") && !apiBaseForBanner && !apiUnreachable && (

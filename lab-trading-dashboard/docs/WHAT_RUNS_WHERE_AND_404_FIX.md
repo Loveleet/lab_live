@@ -1,5 +1,21 @@
 # What runs where — and fixing "Failed to fetch" / 404 on Live Trade
 
+## Quick fix when GitHub Pages shows 404 for api.clubinfotech.com
+
+If the console shows **404** for `https://api.clubinfotech.com/api/trade` or `/auth/me`, the backend is not responding. On the **cloud server** run:
+
+```bash
+ssh root@150.241.244.130
+sudo systemctl restart lab-trading-dashboard
+sudo systemctl status lab-trading-dashboard   # should show "active (running)"
+```
+
+Then from your laptop test:  
+`curl -s -o /dev/null -w "%{http_code}" https://api.clubinfotech.com/api/health`  
+— should print **200**. If you still get 404, follow the steps below (nginx + Node).
+
+---
+
 ## What runs WHERE
 
 ### In the browser (here — GitHub Pages)
